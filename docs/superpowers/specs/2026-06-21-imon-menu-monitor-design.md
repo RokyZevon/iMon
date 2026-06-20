@@ -40,7 +40,7 @@ iMon will use Option A: Swift Package + AppKit. The package will contain:
 
 - `iMonCore`: a pure-ish Swift library for metric models, formatting, delta calculations, provider protocols, and aggregation.
 - `iMon`: an executable AppKit menu bar app that periodically samples `iMonCore`, renders a compact status title, and exposes a menu with detailed metric rows.
-- `iMonCoreTests`: XCTest tests for unit formatting, CPU delta math, memory model, disk model, network throughput delta math, and aggregate snapshot behavior.
+- `iMonCoreTests`: Swift Testing tests for unit formatting, CPU delta math, memory model, disk model, network throughput delta math, and aggregate snapshot behavior.
 
 This structure keeps platform sampling behind narrow protocols while making calculations deterministic in tests.
 
@@ -136,7 +136,7 @@ Completion is proven by:
 
 - Design doc committed in `docs/superpowers/specs/`.
 - Implementation plan committed in `docs/superpowers/plans/`.
-- Swift package with `iMonCore`, `iMon`, and tests.
+- Swift package with `iMonCore`, `iMon`, and Swift Testing tests.
 - `swift test` passing.
 - `swift build` passing.
 - README explaining build, run, and test commands.

@@ -6,7 +6,7 @@
 
 **Architecture:** Use a Swift Package with a testable `iMonCore` library and an AppKit `iMon` executable. System metric calculations live behind provider protocols so deterministic tests can drive CPU/network delta math and snapshot aggregation.
 
-**Tech Stack:** Swift Package Manager, Swift 5.10+ language mode, AppKit, Darwin/Mach APIs, SystemConfiguration-compatible POSIX network interfaces, XCTest.
+**Tech Stack:** Swift Package Manager, Swift 6-compatible source, AppKit, Darwin/Mach APIs, SystemConfiguration-compatible POSIX network interfaces, Swift Testing.
 
 ---
 
@@ -18,8 +18,8 @@
 - Create `Sources/iMonCore/SystemSampler.swift`: stateful aggregation and CPU/network delta calculations.
 - Create `Sources/iMonCore/MacOSProviders.swift`: concrete macOS providers using Darwin/Mach/FileManager APIs.
 - Create `Sources/iMon/main.swift`: AppKit menu bar app and timer-driven rendering.
-- Create `Tests/iMonCoreTests/MetricsTests.swift`: tests for formatting and model percentages.
-- Create `Tests/iMonCoreTests/SystemSamplerTests.swift`: tests for CPU/network deltas and aggregate snapshots.
+- Create `Tests/iMonCoreTests/MetricsTests.swift`: Swift Testing tests for formatting and model percentages.
+- Create `Tests/iMonCoreTests/SystemSamplerTests.swift`: Swift Testing tests for CPU/network deltas and aggregate snapshots.
 - Modify `README.md`: describe project, build/run/test commands, scope, and architecture.
 
 ## Task 1: Swift Package Skeleton and Failing Metric Tests
@@ -34,26 +34,26 @@
 Create `Tests/iMonCoreTests/MetricsTests.swift`:
 
 ```swift
-import XCTest
+import Testing
 @testable import iMonCore
 
-final class MetricsTests: XCTestCase {
-    func testPercentageClampsIntoDisplayRange() {
-        XCTAssertEqual(Percentage(used: 150, total: 100).value, 100)
-        XCTAssertEqual(Percentage(used: 0, total: 100).value, 0)
-        XCTAssertEqual(Percentage(used: 50, total: 100).value, 50)
-        XCTAssertEqual(Percentage(used: 50, total: 0).value, 0)
+struct MetricsTests {
+    @Test func percentageClampsIntoDisplayRange() {
+        #expect(Percentage(used: 150, total: 100).value == 100)
+        #expect(Percentage(used: 0, total: 100).value == 0)
+        #expect(Percentage(used: 50, total: 100).value == 50)
+        #expect(Percentage(used: 50, total: 0).value == 0)
     }
 
-    func testByteFormatterUsesCompactBinaryUnits() {
-        XCTAssertEqual(MetricFormatter.bytes(0), "0 B")
-        XCTAssertEqual(MetricFormatter.bytes(512), "512 B")
-        XCTAssertEqual(MetricFormatter.bytes(1_536), "1.5 KB")
-        XCTAssertEqual(MetricFormatter.bytes(1_572_864), "1.5 MB")
-        XCTAssertEqual(MetricFormatter.bytes(1_610_612_736), "1.5 GB")
+    @Test func byteFormatterUsesCompactBinaryUnits() {
+        #expect(MetricFormatter.bytes(0) == "0 B")
+        #expect(MetricFormatter.bytes(512) == "512 B")
+        #expect(MetricFormatter.bytes(1_536) == "1.5 KB")
+        #expect(MetricFormatter.bytes(1_572_864) == "1.5 MB")
+        #expect(MetricFormatter.bytes(1_610_612_736) == "1.5 GB")
     }
 
-    func testMenuTitleShowsCoreMetrics() {
+    @Test func menuTitleShowsCoreMetrics() {
         let snapshot = SystemSnapshot(
             timestamp: Date(timeIntervalSince1970: 10),
             cpu: CPUUsage(user: 10, system: 15, idle: 75),
@@ -62,10 +62,7 @@ final class MetricsTests: XCTestCase {
             network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
         )
 
-        XCTAssertEqual(
-            MetricFormatter.menuTitle(for: snapshot),
-            "CPU 25% MEM 75% v 1.5 MB/s ^ 128 KB/s"
-        )
+        #expect(MetricFormatter.menuTitle(for: snapshot) == "CPU 25% MEM 75% v 1.5 MB/s ^ 128 KB/s")
     }
 }
 ```
@@ -255,7 +252,7 @@ git commit -m "feat: add metric models and formatting"
 Create `Tests/iMonCoreTests/SystemSamplerTests.swift`:
 
 ```swift
-import XCTest
+import Testing
 @testable import iMonCore
 
 private final class FakeCPUProvider: CPUSampleProvider {
@@ -294,8 +291,8 @@ private final class FakeNetworkProvider: NetworkSampleProvider {
     }
 }
 
-final class SystemSamplerTests: XCTestCase {
-    func testFirstSampleUsesZeroDeltaBasedMetrics() {
+struct SystemSamplerTests {
+    @Test func firstSampleUsesZeroDeltaBasedMetrics() {
         let sampler = SystemSampler(
             cpuProvider: FakeCPUProvider([CPUTicks(user: 10, system: 5, idle: 85)]),
             memoryProvider: FakeMemoryProvider(),
@@ -305,14 +302,14 @@ final class SystemSamplerTests: XCTestCase {
 
         let snapshot = sampler.sample(now: Date(timeIntervalSince1970: 1))
 
-        XCTAssertEqual(snapshot.cpu.active, 0)
-        XCTAssertEqual(snapshot.network.receiveBytesPerSecond, 0)
-        XCTAssertEqual(snapshot.network.transmitBytesPerSecond, 0)
-        XCTAssertEqual(snapshot.memory.percentage, 50)
-        XCTAssertEqual(snapshot.disk.percentage, 30)
+        #expect(snapshot.cpu.active == 0)
+        #expect(snapshot.network.receiveBytesPerSecond == 0)
+        #expect(snapshot.network.transmitBytesPerSecond == 0)
+        #expect(snapshot.memory.percentage == 50)
+        #expect(snapshot.disk.percentage == 30)
     }
 
-    func testSecondSampleComputesCPUAndNetworkDeltas() {
+    @Test func secondSampleComputesCPUAndNetworkDeltas() {
         let sampler = SystemSampler(
             cpuProvider: FakeCPUProvider([
                 CPUTicks(user: 100, system: 50, idle: 850),
@@ -329,15 +326,15 @@ final class SystemSamplerTests: XCTestCase {
         _ = sampler.sample(now: Date(timeIntervalSince1970: 1))
         let snapshot = sampler.sample(now: Date(timeIntervalSince1970: 3))
 
-        XCTAssertEqual(snapshot.cpu.user.rounded(), 30)
-        XCTAssertEqual(snapshot.cpu.system.rounded(), 20)
-        XCTAssertEqual(snapshot.cpu.idle.rounded(), 50)
-        XCTAssertEqual(snapshot.cpu.active.rounded(), 50)
-        XCTAssertEqual(snapshot.network.receiveBytesPerSecond, 1_000)
-        XCTAssertEqual(snapshot.network.transmitBytesPerSecond, 250)
+        #expect(snapshot.cpu.user.rounded() == 30)
+        #expect(snapshot.cpu.system.rounded() == 20)
+        #expect(snapshot.cpu.idle.rounded() == 50)
+        #expect(snapshot.cpu.active.rounded() == 50)
+        #expect(snapshot.network.receiveBytesPerSecond == 1_000)
+        #expect(snapshot.network.transmitBytesPerSecond == 250)
     }
 
-    func testCounterResetReturnsZeroRateForThatInterval() {
+    @Test func counterResetReturnsZeroRateForThatInterval() {
         let sampler = SystemSampler(
             cpuProvider: FakeCPUProvider([
                 CPUTicks(user: 0, system: 0, idle: 1),
@@ -354,8 +351,8 @@ final class SystemSamplerTests: XCTestCase {
         _ = sampler.sample(now: Date(timeIntervalSince1970: 1))
         let snapshot = sampler.sample(now: Date(timeIntervalSince1970: 2))
 
-        XCTAssertEqual(snapshot.network.receiveBytesPerSecond, 0)
-        XCTAssertEqual(snapshot.network.transmitBytesPerSecond, 0)
+        #expect(snapshot.network.receiveBytesPerSecond == 0)
+        #expect(snapshot.network.transmitBytesPerSecond == 0)
     }
 }
 ```
@@ -528,14 +525,14 @@ git commit -m "feat: add system sampler"
 Append to `Tests/iMonCoreTests/SystemSamplerTests.swift`:
 
 ```swift
-final class MacOSProviderConstructionTests: XCTestCase {
-    func testDefaultSamplerCanBeConstructed() {
+struct MacOSProviderConstructionTests {
+    @Test func defaultSamplerCanBeConstructed() {
         let sampler = SystemSampler.live()
         let snapshot = sampler.sample(now: Date(timeIntervalSince1970: 1))
 
-        XCTAssertGreaterThanOrEqual(snapshot.cpu.active, 0)
-        XCTAssertGreaterThanOrEqual(snapshot.memory.totalBytes, 0)
-        XCTAssertGreaterThanOrEqual(snapshot.disk.totalBytes, 0)
+        #expect(snapshot.cpu.active >= 0)
+        #expect(snapshot.memory.totalBytes >= 0)
+        #expect(snapshot.disk.totalBytes >= 0)
     }
 }
 ```
@@ -844,7 +841,7 @@ iMon is a lightweight open source macOS menu bar monitor inspired by iStat. This
 - Swift Package Manager
 - Swift + AppKit for the menu bar application
 - Native macOS/Darwin APIs for metric collection
-- XCTest for core metric tests
+- Swift Testing for core metric tests
 
 ## Build
 
