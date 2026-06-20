@@ -6,20 +6,19 @@
 
 **Architecture:** Use a Swift Package with a testable `iMonCore` library and an AppKit `iMon` executable. System metric calculations live behind provider protocols so deterministic tests can drive CPU/network delta math and snapshot aggregation.
 
-**Tech Stack:** Swift Package Manager, Swift 6-compatible source, AppKit, Darwin/Mach APIs, SystemConfiguration-compatible POSIX network interfaces, Swift Testing.
+**Tech Stack:** Swift Package Manager, Swift 6-compatible source, AppKit, Darwin/Mach APIs, SystemConfiguration-compatible POSIX network interfaces, executable self-test harness.
 
 ---
 
 ## File Structure
 
-- Create `Package.swift`: package manifest with `iMonCore` library, `iMon` executable, and `iMonCoreTests`.
+- Create `Package.swift`: package manifest with `iMonCore` library, `iMon` executable, and `iMonCoreSelfTests` executable.
 - Create `Sources/iMonCore/Metrics.swift`: value models, percentage clamping, and byte formatting.
 - Create `Sources/iMonCore/Providers.swift`: provider protocols and raw sample structs.
 - Create `Sources/iMonCore/SystemSampler.swift`: stateful aggregation and CPU/network delta calculations.
 - Create `Sources/iMonCore/MacOSProviders.swift`: concrete macOS providers using Darwin/Mach/FileManager APIs.
 - Create `Sources/iMon/main.swift`: AppKit menu bar app and timer-driven rendering.
-- Create `Tests/iMonCoreTests/MetricsTests.swift`: Swift Testing tests for formatting and model percentages.
-- Create `Tests/iMonCoreTests/SystemSamplerTests.swift`: Swift Testing tests for CPU/network deltas and aggregate snapshots.
+- Create `Sources/iMonCoreSelfTests/main.swift`: executable self-tests for formatting, model percentages, CPU/network deltas, macOS provider construction, and aggregate snapshots.
 - Modify `README.md`: describe project, build/run/test commands, scope, and architecture.
 
 ## Task 1: Swift Package Skeleton and Failing Metric Tests
@@ -27,11 +26,11 @@
 **Files:**
 - Create: `Package.swift`
 - Create: `Sources/iMonCore/Metrics.swift`
-- Create: `Tests/iMonCoreTests/MetricsTests.swift`
+- Create: `Sources/iMonCoreSelfTests/main.swift`
 
 - [ ] **Step 1: Write the failing metric tests**
 
-Create `Tests/iMonCoreTests/MetricsTests.swift`:
+Create `Sources/iMonCoreSelfTests/main.swift` with metric tests:
 
 ```swift
 import Testing
@@ -85,8 +84,9 @@ let package = Package(
     targets: [
         .target(name: "iMonCore"),
         .executableTarget(name: "iMon", dependencies: ["iMonCore"]),
-        .testTarget(name: "iMonCoreTests", dependencies: ["iMonCore"])
-    ]
+        .executableTarget(name: "iMonCoreSelfTests", dependencies: ["iMonCore"])
+    ],
+    swiftLanguageModes: [.v6]
 )
 ```
 
@@ -98,7 +98,7 @@ import Foundation
 
 - [ ] **Step 3: Run tests to verify RED**
 
-Run: `swift test --filter MetricsTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: FAIL because `Percentage`, `MetricFormatter`, `SystemSnapshot`, `CPUUsage`, `MemoryUsage`, `DiskUsage`, and `NetworkRate` are not defined.
 
@@ -229,14 +229,14 @@ public enum MetricFormatter {
 
 - [ ] **Step 5: Run tests to verify GREEN**
 
-Run: `swift test --filter MetricsTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Package.swift Sources/iMonCore/Metrics.swift Tests/iMonCoreTests/MetricsTests.swift
+git add Package.swift Sources/iMonCore/Metrics.swift Sources/iMonCoreSelfTests/main.swift
 git commit -m "feat: add metric models and formatting"
 ```
 
@@ -245,11 +245,11 @@ git commit -m "feat: add metric models and formatting"
 **Files:**
 - Create: `Sources/iMonCore/Providers.swift`
 - Create: `Sources/iMonCore/SystemSampler.swift`
-- Create: `Tests/iMonCoreTests/SystemSamplerTests.swift`
+- Modify: `Sources/iMonCoreSelfTests/main.swift`
 
 - [ ] **Step 1: Write failing sampler tests**
 
-Create `Tests/iMonCoreTests/SystemSamplerTests.swift`:
+Append sampler tests to `Sources/iMonCoreSelfTests/main.swift`:
 
 ```swift
 import Testing
@@ -359,7 +359,7 @@ struct SystemSamplerTests {
 
 - [ ] **Step 2: Run tests to verify RED**
 
-Run: `swift test --filter SystemSamplerTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: FAIL because provider protocols, raw samples, and `SystemSampler` are not defined.
 
@@ -503,14 +503,14 @@ public final class SystemSampler {
 
 - [ ] **Step 5: Run tests to verify GREEN**
 
-Run: `swift test --filter SystemSamplerTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Sources/iMonCore/Providers.swift Sources/iMonCore/SystemSampler.swift Tests/iMonCoreTests/SystemSamplerTests.swift
+git add Sources/iMonCore/Providers.swift Sources/iMonCore/SystemSampler.swift Sources/iMonCoreSelfTests/main.swift
 git commit -m "feat: add system sampler"
 ```
 
@@ -522,7 +522,7 @@ git commit -m "feat: add system sampler"
 
 - [ ] **Step 1: Write a failing construction test**
 
-Append to `Tests/iMonCoreTests/SystemSamplerTests.swift`:
+Append to `Sources/iMonCoreSelfTests/main.swift`:
 
 ```swift
 struct MacOSProviderConstructionTests {
@@ -539,7 +539,7 @@ struct MacOSProviderConstructionTests {
 
 - [ ] **Step 2: Run test to verify RED**
 
-Run: `swift test --filter MacOSProviderConstructionTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: FAIL because `SystemSampler.live()` is not defined.
 
@@ -695,7 +695,7 @@ public extension SystemSampler {
 
 - [ ] **Step 5: Run tests and build**
 
-Run: `swift test --filter MacOSProviderConstructionTests`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: PASS.
 
@@ -706,7 +706,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Sources/iMonCore/MacOSProviders.swift Sources/iMonCore/SystemSampler.swift Tests/iMonCoreTests/SystemSamplerTests.swift
+git add Sources/iMonCore/MacOSProviders.swift Sources/iMonCore/SystemSampler.swift Sources/iMonCoreSelfTests/main.swift
 git commit -m "feat: add macOS metric providers"
 ```
 
@@ -841,7 +841,7 @@ iMon is a lightweight open source macOS menu bar monitor inspired by iStat. This
 - Swift Package Manager
 - Swift + AppKit for the menu bar application
 - Native macOS/Darwin APIs for metric collection
-- Swift Testing for core metric tests
+- Executable self-test harness for core metric tests
 
 ## Build
 
@@ -860,7 +860,7 @@ The app appears in the macOS menu bar and uses accessory activation policy.
 ## Test
 
 ```bash
-swift test
+swift run iMonCoreSelfTests
 ```
 
 ## Scope
@@ -883,7 +883,7 @@ Out of scope for this first release:
 
 - [ ] **Step 2: Run full verification**
 
-Run: `swift test`
+Run: `swift run iMonCoreSelfTests`
 
 Expected: PASS.
 
@@ -911,7 +911,7 @@ Check:
 git status --short
 git log --oneline --decorate -8
 rg -n "TO""DO|TB""D|fatalError|force unwrap|try!" Package.swift Sources Tests README.md docs/superpowers
-swift test
+swift run iMonCoreSelfTests
 swift build
 ```
 
@@ -936,7 +936,7 @@ Report in Chinese:
 
 - Chosen stack: Swift + AppKit + Swift Package Manager.
 - Implemented CPU, memory, disk, and network monitoring.
-- Run commands: `swift build`, `swift test`, `swift run iMon`.
+- Run commands: `swift build`, `swift run iMonCoreSelfTests`, `swift run iMon`.
 - Verification output summary.
 - Branch and worktree path.
 - Residual risks: unsigned/unpackaged executable, no charts/preferences/login item, first sample has zero delta-based CPU/network values.
