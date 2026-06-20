@@ -1,0 +1,7 @@
+.worktrees/
+.build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.swp
+*.DS_Store
