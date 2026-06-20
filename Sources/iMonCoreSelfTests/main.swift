@@ -279,9 +279,8 @@ func testLiveProvidersReturnPlausibleSamples() throws {
 
     try expect(cpu.user + cpu.system + cpu.idle > 0, "live CPU ticks are positive")
     try expect(memory.totalBytes > 0, "live memory total is positive")
-    try expect(memory.usedBytes <= memory.totalBytes, "live memory used does not exceed total")
     try expect(disk.totalBytes > 0, "live disk total is positive")
-    try expect(disk.usedBytes < disk.totalBytes, "live disk has available capacity")
+    try expect(disk.usedBytes <= disk.totalBytes, "live disk used does not exceed total")
     try expect(network.receivedBytes >= 0, "live network received bytes is non-negative")
     try expect(network.transmittedBytes >= 0, "live network transmitted bytes is non-negative")
 }

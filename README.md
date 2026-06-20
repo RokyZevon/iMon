@@ -2,6 +2,8 @@
 
 iMon is a lightweight open source macOS menu bar monitor inspired by iStat. This first release monitors CPU, memory, disk usage, and network throughput.
 
+License: MIT.
+
 ## Tech Stack
 
 - Swift Package Manager

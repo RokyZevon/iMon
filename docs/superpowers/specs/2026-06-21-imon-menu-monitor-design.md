@@ -72,7 +72,7 @@ Concrete macOS providers use:
 - CPU: `host_processor_info` tick counters.
 - Memory: `host_statistics64` plus `host_page_size`.
 - Disk: `FileManager.attributesOfFileSystem`.
-- Network: `getifaddrs` interface byte counters, excluding loopback and inactive interfaces.
+- Network: `sysctl`/`ifmibdata` interface byte counters, using 64-bit `if_data64` values and excluding loopback, inactive, and common virtual interfaces.
 
 ### Sampler
 
