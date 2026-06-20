@@ -262,6 +262,30 @@ func testProviderFailureResetsDeltaBaselines() throws {
     try expectEqual(recoveredSnapshot.network.transmitBytesPerSecond, 0, "recovered transmit rate uses fresh baseline")
 }
 
+func testDefaultSamplerCanBeConstructed() throws {
+    let sampler = SystemSampler.live()
+    let snapshot = sampler.sample(now: Date(timeIntervalSince1970: 1))
+
+    try expect(snapshot.cpu.active >= 0, "live CPU active is non-negative")
+    try expect(snapshot.memory.totalBytes >= 0, "live memory total is non-negative")
+    try expect(snapshot.disk.totalBytes >= 0, "live disk total is non-negative")
+}
+
+func testLiveProvidersReturnPlausibleSamples() throws {
+    let cpu = try MacOSCPUProvider().sample()
+    let memory = try MacOSMemoryProvider().sample()
+    let disk = try MacOSDiskProvider().sample()
+    let network = try MacOSNetworkProvider().sample()
+
+    try expect(cpu.user + cpu.system + cpu.idle > 0, "live CPU ticks are positive")
+    try expect(memory.totalBytes > 0, "live memory total is positive")
+    try expect(memory.usedBytes <= memory.totalBytes, "live memory used does not exceed total")
+    try expect(disk.totalBytes > 0, "live disk total is positive")
+    try expect(disk.usedBytes < disk.totalBytes, "live disk has available capacity")
+    try expect(network.receivedBytes >= 0, "live network received bytes is non-negative")
+    try expect(network.transmittedBytes >= 0, "live network transmitted bytes is non-negative")
+}
+
 let tests: [(String, () throws -> Void)] = [
     ("percentage clamps into display range", testPercentageClampsIntoDisplayRange),
     ("byte formatter uses compact binary units", testByteFormatterUsesCompactBinaryUnits),
@@ -271,7 +295,9 @@ let tests: [(String, () throws -> Void)] = [
     ("counter reset returns zero rate", testCounterResetReturnsZeroRateForThatInterval),
     ("zero CPU delta returns idle fallback", testZeroCPUDeltaReturnsIdleFallback),
     ("non-positive elapsed time returns zero network rate", testNonPositiveElapsedTimeReturnsZeroNetworkRate),
-    ("provider failure resets delta baselines", testProviderFailureResetsDeltaBaselines)
+    ("provider failure resets delta baselines", testProviderFailureResetsDeltaBaselines),
+    ("default sampler can be constructed", testDefaultSamplerCanBeConstructed),
+    ("live providers return plausible samples", testLiveProvidersReturnPlausibleSamples)
 ]
 
 var failures: [String] = []
