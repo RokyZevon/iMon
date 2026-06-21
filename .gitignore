@@ -1,5 +1,6 @@
 .worktrees/
 .build/
+dist/
 DerivedData/
 *.xcodeproj/
 *.xcworkspace/

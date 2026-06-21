@@ -25,6 +25,15 @@ swift run iMon
 
 The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon.
 
+## Package As A macOS App
+
+```bash
+./scripts/package_app.sh
+open dist/iMon.app
+```
+
+The packaged app is created at `dist/iMon.app`. It is ad-hoc signed for local use, but it is not notarized.
+
 ## Test
 
 ```bash
