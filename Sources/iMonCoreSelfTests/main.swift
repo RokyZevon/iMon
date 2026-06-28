@@ -133,6 +133,15 @@ func testMenuBarDisplaySettingsDefaultRows() throws {
     try expect(!settings.isVisible(.disk), "disk hidden by default")
 }
 
+func testMenuBarDisplaySettingsStoreUsesDefaultsWhenKeysAreMissing() throws {
+    let defaults = makeIsolatedDefaults(name: "display-store-missing-keys")
+    let store = MenuBarDisplaySettingsStore(defaults: defaults, keyPrefix: "testMenuBar")
+
+    let loaded = store.load()
+
+    try expectEqual(loaded, .defaults, "missing keys load default settings")
+}
+
 func testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric() throws {
     var settings = MenuBarDisplaySettings.defaults
 
@@ -408,6 +417,7 @@ let tests: [(String, () throws -> Void)] = [
     ("stacked menu title preserves leading padding for partial visibility", testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility),
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
     ("menu bar display settings default rows", testMenuBarDisplaySettingsDefaultRows),
+    ("menu bar display settings store uses defaults when keys are missing", testMenuBarDisplaySettingsStoreUsesDefaultsWhenKeysAreMissing),
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
