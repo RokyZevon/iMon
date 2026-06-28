@@ -51,6 +51,21 @@ public struct MenuBarDisplaySettings: Equatable, Sendable {
             return showsDisk
         }
     }
+
+    public mutating func toggle(_ metric: MenuBarDisplayMetric) {
+        switch metric {
+        case .cpu:
+            showsCPU.toggle()
+        case .memory:
+            showsMemory.toggle()
+        case .upload:
+            showsUpload.toggle()
+        case .download:
+            showsDownload.toggle()
+        case .disk:
+            showsDisk.toggle()
+        }
+    }
 }
 
 public struct MenuBarStackedTitle: Equatable, Sendable {
@@ -113,6 +128,46 @@ public enum MenuBarTitleFormatter {
             top: top.padding(toLength: width, withPad: " ", startingAt: 0),
             bottom: bottom.padding(toLength: width, withPad: " ", startingAt: 0)
         )
+    }
+}
+
+public struct MenuBarDisplaySettingsStore {
+    private let defaults: UserDefaults
+    private let keyPrefix: String
+
+    public init(defaults: UserDefaults = .standard, keyPrefix: String = "menuBarDisplay") {
+        self.defaults = defaults
+        self.keyPrefix = keyPrefix
+    }
+
+    public func load() -> MenuBarDisplaySettings {
+        MenuBarDisplaySettings(
+            showsCPU: bool(for: .cpu, defaultValue: MenuBarDisplaySettings.defaults.showsCPU),
+            showsMemory: bool(for: .memory, defaultValue: MenuBarDisplaySettings.defaults.showsMemory),
+            showsUpload: bool(for: .upload, defaultValue: MenuBarDisplaySettings.defaults.showsUpload),
+            showsDownload: bool(for: .download, defaultValue: MenuBarDisplaySettings.defaults.showsDownload),
+            showsDisk: bool(for: .disk, defaultValue: MenuBarDisplaySettings.defaults.showsDisk)
+        )
+    }
+
+    public func save(_ settings: MenuBarDisplaySettings) {
+        defaults.set(settings.showsCPU, forKey: key(for: .cpu))
+        defaults.set(settings.showsMemory, forKey: key(for: .memory))
+        defaults.set(settings.showsUpload, forKey: key(for: .upload))
+        defaults.set(settings.showsDownload, forKey: key(for: .download))
+        defaults.set(settings.showsDisk, forKey: key(for: .disk))
+    }
+
+    private func bool(for metric: MenuBarDisplayMetric, defaultValue: Bool) -> Bool {
+        let key = key(for: metric)
+        guard defaults.object(forKey: key) != nil else {
+            return defaultValue
+        }
+        return defaults.bool(forKey: key)
+    }
+
+    private func key(for metric: MenuBarDisplayMetric) -> String {
+        "\(keyPrefix).\(metric.rawValue)"
     }
 }
 

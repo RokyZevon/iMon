@@ -114,6 +114,50 @@ func testStackedMenuTitleFallsBackWhenEveryRowIsHidden() throws {
     try expectEqual(title.stringValue, "iMon", "fallback title string")
 }
 
+func makeIsolatedDefaults(name: String) -> UserDefaults {
+    let suiteName = "iMonCoreSelfTests.\(name).\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        fatalError("Unable to create isolated UserDefaults suite")
+    }
+    defaults.removePersistentDomain(forName: suiteName)
+    return defaults
+}
+
+func testMenuBarDisplaySettingsDefaultRows() throws {
+    let settings = MenuBarDisplaySettings.defaults
+
+    try expect(settings.isVisible(.cpu), "CPU visible by default")
+    try expect(settings.isVisible(.memory), "memory visible by default")
+    try expect(settings.isVisible(.upload), "upload visible by default")
+    try expect(settings.isVisible(.download), "download visible by default")
+    try expect(!settings.isVisible(.disk), "disk hidden by default")
+}
+
+func testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric() throws {
+    var settings = MenuBarDisplaySettings.defaults
+
+    settings.toggle(.upload)
+
+    try expect(settings.isVisible(.cpu), "CPU remains visible")
+    try expect(settings.isVisible(.memory), "memory remains visible")
+    try expect(!settings.isVisible(.upload), "upload toggled off")
+    try expect(settings.isVisible(.download), "download remains visible")
+    try expect(!settings.isVisible(.disk), "disk remains hidden")
+}
+
+func testMenuBarDisplaySettingsStorePersistsRows() throws {
+    let defaults = makeIsolatedDefaults(name: "display-store")
+    let store = MenuBarDisplaySettingsStore(defaults: defaults, keyPrefix: "testMenuBar")
+    var settings = MenuBarDisplaySettings.defaults
+    settings.toggle(.cpu)
+    settings.toggle(.disk)
+
+    store.save(settings)
+    let loaded = store.load()
+
+    try expectEqual(loaded, settings, "loaded settings")
+}
+
 func testMenuTitleShowsCoreMetrics() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -363,6 +407,9 @@ let tests: [(String, () throws -> Void)] = [
     ("stacked menu title uses CPU over memory and upload over download", testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload),
     ("stacked menu title preserves leading padding for partial visibility", testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility),
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
+    ("menu bar display settings default rows", testMenuBarDisplaySettingsDefaultRows),
+    ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
+    ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
     ("second sample computes CPU and network deltas", testSecondSampleComputesCPUAndNetworkDeltas),
