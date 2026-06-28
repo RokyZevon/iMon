@@ -1,4 +1,5 @@
 import Foundation
+import iMonApp
 import iMonCore
 
 enum TestFailure: Error, CustomStringConvertible {
@@ -165,6 +166,18 @@ func testMenuBarDisplaySettingsStorePersistsRows() throws {
     let loaded = store.load()
 
     try expectEqual(loaded, settings, "loaded settings")
+}
+
+func testMenuBarAttributedTitleUsesStackedTitleString() throws {
+    let stackedTitle = MenuBarStackedTitle(
+        topLine: "CPU 25%  ↑ 128K",
+        bottomLine: "MEM 75%  ↓ 1.5M"
+    )
+
+    let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle)
+
+    try expectEqual(attributedTitle.string, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "attributed title string")
+    try expect(attributedTitle.length > 0, "attributed title has content")
 }
 
 func testMenuTitleShowsCoreMetrics() throws {
@@ -420,6 +433,7 @@ let tests: [(String, () throws -> Void)] = [
     ("menu bar display settings store uses defaults when keys are missing", testMenuBarDisplaySettingsStoreUsesDefaultsWhenKeysAreMissing),
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
+    ("menu bar attributed title uses stacked title string", testMenuBarAttributedTitleUsesStackedTitleString),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
     ("second sample computes CPU and network deltas", testSecondSampleComputesCPUAndNetworkDeltas),
