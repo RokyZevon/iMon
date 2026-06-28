@@ -43,6 +43,54 @@ func testByteFormatterUsesCompactBinaryUnits() throws {
     try expectEqual(MetricFormatter.bytes(1_610_612_736), "1.5 GB", "gigabytes")
 }
 
+func testCompactRateFormatterOmitsPerSecondForMenuBar() throws {
+    try expectEqual(MetricFormatter.compactRate(0), "0B", "zero compact rate")
+    try expectEqual(MetricFormatter.compactRate(512), "512B", "byte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_024), "1K", "one kilobyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(131_072), "128K", "kilobyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_572_864), "1.5M", "megabyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_610_612_736), "1.5G", "gigabyte compact rate")
+}
+
+func testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload() throws {
+    let snapshot = SystemSnapshot(
+        timestamp: Date(timeIntervalSince1970: 10),
+        cpu: CPUUsage(user: 10, system: 15, idle: 75),
+        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592),
+        disk: DiskUsage(usedBytes: 50, totalBytes: 100),
+        network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
+    )
+
+    let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: .defaults)
+
+    try expectEqual(title.topLine, "CPU 25%  ↑ 128K", "top line")
+    try expectEqual(title.bottomLine, "MEM 75%  ↓ 1.5M", "bottom line")
+    try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "stacked title string")
+}
+
+func testStackedMenuTitleFallsBackWhenEveryRowIsHidden() throws {
+    let snapshot = SystemSnapshot(
+        timestamp: Date(timeIntervalSince1970: 10),
+        cpu: CPUUsage(user: 10, system: 15, idle: 75),
+        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592),
+        disk: DiskUsage(usedBytes: 50, totalBytes: 100),
+        network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
+    )
+    let settings = MenuBarDisplaySettings(
+        showsCPU: false,
+        showsMemory: false,
+        showsUpload: false,
+        showsDownload: false,
+        showsDisk: false
+    )
+
+    let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
+
+    try expectEqual(title.topLine, "iMon", "fallback top line")
+    try expectEqual(title.bottomLine, "", "fallback bottom line")
+    try expectEqual(title.stringValue, "iMon", "fallback title string")
+}
+
 func testMenuTitleShowsCoreMetrics() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -288,6 +336,9 @@ func testLiveProvidersReturnPlausibleSamples() throws {
 let tests: [(String, () throws -> Void)] = [
     ("percentage clamps into display range", testPercentageClampsIntoDisplayRange),
     ("byte formatter uses compact binary units", testByteFormatterUsesCompactBinaryUnits),
+    ("compact rate formatter omits per-second for menu bar", testCompactRateFormatterOmitsPerSecondForMenuBar),
+    ("stacked menu title uses CPU over memory and upload over download", testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload),
+    ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
     ("second sample computes CPU and network deltas", testSecondSampleComputesCPUAndNetworkDeltas),
