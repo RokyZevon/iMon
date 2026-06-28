@@ -108,6 +108,27 @@ public enum MetricFormatter {
         return String(format: "%.1f %@", rounded, units[unitIndex])
     }
 
+    public static func compactRate(_ bytesPerSecond: UInt64) -> String {
+        let units = ["B", "K", "M", "G", "T"]
+        var value = Double(bytesPerSecond)
+        var unitIndex = 0
+
+        while value >= 1024 && unitIndex < units.count - 1 {
+            value /= 1024
+            unitIndex += 1
+        }
+
+        if unitIndex == 0 {
+            return "\(Int(value))\(units[unitIndex])"
+        }
+
+        let rounded = (value * 10).rounded() / 10
+        if rounded.rounded() == rounded {
+            return "\(Int(rounded))\(units[unitIndex])"
+        }
+        return String(format: "%.1f%@", rounded, units[unitIndex])
+    }
+
     public static func rate(_ bytesPerSecond: UInt64) -> String {
         "\(bytes(bytesPerSecond))/s"
     }
