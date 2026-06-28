@@ -23,7 +23,7 @@ swift build
 swift run iMon
 ```
 
-The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon.
+The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon. The menu bar title uses compact stacked values by default: CPU appears above memory, and upload appears above download. Open the status menu and use the `Menu Bar` section to choose which values appear in the menu bar.
 
 ## Package As A macOS App
 
