@@ -602,12 +602,12 @@ In `Sources/iMonCore/MenuBarDisplay.swift`, add this block after the network col
         }
 ```
 
-Then replace the return at the end of `stackedTitle(for:settings:)` with:
+Then replace the return at the end of `stackedTitle(for:settings:)` with the following. Keep the existing `trimmingTrailingSpaces()` helper from Task 1; do not use `.trimmingCharacters(in: .whitespaces)` on `bottomLine`, because that removes leading padding needed for column alignment when some rows are hidden.
 
 ```swift
         return MenuBarStackedTitle(
-            topLine: columns.map(\.top).joined(separator: "  ").trimmingCharacters(in: .whitespaces),
-            bottomLine: columns.map(\.bottom).joined(separator: "  ").trimmingCharacters(in: .whitespaces)
+            topLine: columns.map(\.top).joined(separator: "  ").trimmingTrailingSpaces(),
+            bottomLine: columns.map(\.bottom).joined(separator: "  ").trimmingTrailingSpaces()
         )
 ```
 
