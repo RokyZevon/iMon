@@ -69,6 +69,28 @@ func testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload() throws {
     try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "stacked title string")
 }
 
+func testStackedMenuTitleCanIncludeDiskWhenConfigured() throws {
+    let snapshot = SystemSnapshot(
+        timestamp: Date(timeIntervalSince1970: 10),
+        cpu: CPUUsage(user: 10, system: 15, idle: 75),
+        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592),
+        disk: DiskUsage(usedBytes: 50, totalBytes: 100),
+        network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
+    )
+    let settings = MenuBarDisplaySettings(
+        showsCPU: true,
+        showsMemory: true,
+        showsUpload: true,
+        showsDownload: true,
+        showsDisk: true
+    )
+
+    let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
+
+    try expectEqual(title.topLine, "CPU 25%  ↑ 128K  DSK 50%", "top line with disk")
+    try expectEqual(title.bottomLine, "MEM 75%  ↓ 1.5M", "bottom line with disk")
+}
+
 func testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -427,6 +449,7 @@ let tests: [(String, () throws -> Void)] = [
     ("byte formatter uses compact binary units", testByteFormatterUsesCompactBinaryUnits),
     ("compact rate formatter omits per-second for menu bar", testCompactRateFormatterOmitsPerSecondForMenuBar),
     ("stacked menu title uses CPU over memory and upload over download", testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload),
+    ("stacked menu title can include disk when configured", testStackedMenuTitleCanIncludeDiskWhenConfigured),
     ("stacked menu title preserves leading padding for partial visibility", testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility),
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
     ("menu bar display settings default rows", testMenuBarDisplaySettingsDefaultRows),

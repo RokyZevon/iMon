@@ -108,12 +108,20 @@ public enum MenuBarTitleFormatter {
             columns.append(networkColumn)
         }
 
+        let diskColumn = column(
+            top: settings.showsDisk ? "DSK \(MetricFormatter.percent(snapshot.disk.percentage))" : "",
+            bottom: ""
+        )
+        if let diskColumn {
+            columns.append(diskColumn)
+        }
+
         guard !columns.isEmpty else {
             return MenuBarStackedTitle(topLine: "iMon", bottomLine: "")
         }
 
         return MenuBarStackedTitle(
-            topLine: columns.map(\.top).joined(separator: "  "),
+            topLine: columns.map(\.top).joined(separator: "  ").trimmingTrailingSpaces(),
             bottomLine: columns.map(\.bottom).joined(separator: "  ").trimmingTrailingSpaces()
         )
     }
