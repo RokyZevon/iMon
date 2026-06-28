@@ -202,6 +202,14 @@ func testMenuBarAttributedTitleUsesStackedTitleString() throws {
     try expect(attributedTitle.length > 0, "attributed title has content")
 }
 
+func testMenuBarSectionItemIsDisabled() throws {
+    let item = MenuBarMenuItemFactory.sectionTitle("Menu Bar")
+
+    try expectEqual(item.title, "Menu Bar", "section title")
+    try expect(!item.isEnabled, "section item is disabled")
+    try expect(item.action == nil, "section item has no action")
+}
+
 func testMenuTitleShowsCoreMetrics() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -457,6 +465,7 @@ let tests: [(String, () throws -> Void)] = [
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu bar attributed title uses stacked title string", testMenuBarAttributedTitleUsesStackedTitleString),
+    ("menu bar section item is disabled", testMenuBarSectionItemIsDisabled),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
     ("second sample computes CPU and network deltas", testSecondSampleComputesCPUAndNetworkDeltas),
