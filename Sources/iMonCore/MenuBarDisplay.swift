@@ -99,7 +99,7 @@ public enum MenuBarTitleFormatter {
 
         return MenuBarStackedTitle(
             topLine: columns.map(\.top).joined(separator: "  "),
-            bottomLine: columns.map(\.bottom).joined(separator: "  ").trimmingCharacters(in: .whitespaces)
+            bottomLine: columns.map(\.bottom).joined(separator: "  ").trimmingTrailingSpaces()
         )
     }
 
@@ -113,5 +113,15 @@ public enum MenuBarTitleFormatter {
             top: top.padding(toLength: width, withPad: " ", startingAt: 0),
             bottom: bottom.padding(toLength: width, withPad: " ", startingAt: 0)
         )
+    }
+}
+
+private extension String {
+    func trimmingTrailingSpaces() -> String {
+        var result = self
+        while result.last?.isWhitespace == true {
+            result.removeLast()
+        }
+        return result
     }
 }

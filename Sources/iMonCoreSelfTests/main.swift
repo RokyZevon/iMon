@@ -68,6 +68,29 @@ func testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload() throws {
     try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "stacked title string")
 }
 
+func testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility() throws {
+    let snapshot = SystemSnapshot(
+        timestamp: Date(timeIntervalSince1970: 10),
+        cpu: CPUUsage(user: 10, system: 15, idle: 75),
+        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592),
+        disk: DiskUsage(usedBytes: 50, totalBytes: 100),
+        network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
+    )
+    let settings = MenuBarDisplaySettings(
+        showsCPU: true,
+        showsMemory: false,
+        showsUpload: true,
+        showsDownload: true,
+        showsDisk: false
+    )
+
+    let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
+
+    try expectEqual(title.topLine, "CPU 25%  ↑ 128K", "top line")
+    try expectEqual(title.bottomLine, "         ↓ 1.5M", "bottom line")
+    try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\n         ↓ 1.5M", "stacked title string")
+}
+
 func testStackedMenuTitleFallsBackWhenEveryRowIsHidden() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -338,6 +361,7 @@ let tests: [(String, () throws -> Void)] = [
     ("byte formatter uses compact binary units", testByteFormatterUsesCompactBinaryUnits),
     ("compact rate formatter omits per-second for menu bar", testCompactRateFormatterOmitsPerSecondForMenuBar),
     ("stacked menu title uses CPU over memory and upload over download", testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload),
+    ("stacked menu title preserves leading padding for partial visibility", testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility),
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
