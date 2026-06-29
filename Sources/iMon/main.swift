@@ -10,12 +10,15 @@ final class MenuBarController: NSObject {
     private let settingsStore: MenuBarDisplaySettingsStore
     private let menu = NSMenu()
     private let cpuToggleItem = NSMenuItem()
+    private let cpuLoadToggleItem = NSMenuItem()
     private let memoryToggleItem = NSMenuItem()
     private let memoryPressureToggleItem = NSMenuItem()
     private let uploadToggleItem = NSMenuItem()
     private let downloadToggleItem = NSMenuItem()
-    private let diskToggleItem = NSMenuItem()
+    private let diskUsedToggleItem = NSMenuItem()
+    private let diskFreeToggleItem = NSMenuItem()
     private let cpuItem = NSMenuItem()
+    private let cpuLoadItem = NSMenuItem()
     private let memoryItem = NSMenuItem()
     private let memoryPressureItem = NSMenuItem()
     private let diskItem = NSMenuItem()
@@ -23,6 +26,7 @@ final class MenuBarController: NSObject {
     private let downloadItem = NSMenuItem()
     private var settings: MenuBarDisplaySettings
     private var latestSnapshot: SystemSnapshot?
+    private var metricsView: MenuBarMetricsView?
     private var timer: Timer?
 
     init(
@@ -64,23 +68,28 @@ final class MenuBarController: NSObject {
         statusItem.button?.title = "iMon"
         statusItem.menu = menu
 
-        configureToggle(cpuToggleItem, title: "Show CPU in Menu Bar", action: #selector(toggleCPU))
-        configureToggle(memoryToggleItem, title: "Show Memory in Menu Bar", action: #selector(toggleMemory))
-        configureToggle(memoryPressureToggleItem, title: "Show Memory Pressure in Menu Bar", action: #selector(toggleMemoryPressure))
-        configureToggle(uploadToggleItem, title: "Show Upload in Menu Bar", action: #selector(toggleUpload))
-        configureToggle(downloadToggleItem, title: "Show Download in Menu Bar", action: #selector(toggleDownload))
-        configureToggle(diskToggleItem, title: "Show Disk in Menu Bar", action: #selector(toggleDisk))
+        configureToggle(cpuToggleItem, title: "Show CPU Usage (C) in Menu Bar", action: #selector(toggleCPU))
+        configureToggle(cpuLoadToggleItem, title: "Show CPU Load (L) in Menu Bar", action: #selector(toggleCPULoad))
+        configureToggle(memoryToggleItem, title: "Show Memory Usage (M) in Menu Bar", action: #selector(toggleMemory))
+        configureToggle(memoryPressureToggleItem, title: "Show Memory Pressure (P) in Menu Bar", action: #selector(toggleMemoryPressure))
+        configureToggle(uploadToggleItem, title: "Show Upload (↑) in Menu Bar", action: #selector(toggleUpload))
+        configureToggle(downloadToggleItem, title: "Show Download (↓) in Menu Bar", action: #selector(toggleDownload))
+        configureToggle(diskUsedToggleItem, title: "Show Disk Used (D) in Menu Bar", action: #selector(toggleDiskUsed))
+        configureToggle(diskFreeToggleItem, title: "Show Disk Free (F) in Menu Bar", action: #selector(toggleDiskFree))
 
         menu.addItem(MenuBarMenuItemFactory.sectionTitle("Menu Bar"))
         menu.addItem(cpuToggleItem)
+        menu.addItem(cpuLoadToggleItem)
         menu.addItem(memoryToggleItem)
         menu.addItem(memoryPressureToggleItem)
         menu.addItem(uploadToggleItem)
         menu.addItem(downloadToggleItem)
-        menu.addItem(diskToggleItem)
+        menu.addItem(diskUsedToggleItem)
+        menu.addItem(diskFreeToggleItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(MenuBarMenuItemFactory.sectionTitle("Details"))
         menu.addItem(cpuItem)
+        menu.addItem(cpuLoadItem)
         menu.addItem(memoryItem)
         menu.addItem(memoryPressureItem)
         menu.addItem(diskItem)
@@ -102,6 +111,10 @@ final class MenuBarController: NSObject {
         toggle(.cpu)
     }
 
+    @objc private func toggleCPULoad() {
+        toggle(.cpuLoad)
+    }
+
     @objc private func toggleMemory() {
         toggle(.memory)
     }
@@ -118,8 +131,12 @@ final class MenuBarController: NSObject {
         toggle(.download)
     }
 
-    @objc private func toggleDisk() {
-        toggle(.disk)
+    @objc private func toggleDiskUsed() {
+        toggle(.diskUsed)
+    }
+
+    @objc private func toggleDiskFree() {
+        toggle(.diskFree)
     }
 
     private func toggle(_ metric: MenuBarDisplayMetric) {
@@ -133,11 +150,13 @@ final class MenuBarController: NSObject {
 
     private func updateToggleStates() {
         cpuToggleItem.state = settings.showsCPU ? .on : .off
+        cpuLoadToggleItem.state = settings.showsCPULoad ? .on : .off
         memoryToggleItem.state = settings.showsMemory ? .on : .off
         memoryPressureToggleItem.state = settings.showsMemoryPressure ? .on : .off
         uploadToggleItem.state = settings.showsUpload ? .on : .off
         downloadToggleItem.state = settings.showsDownload ? .on : .off
-        diskToggleItem.state = settings.showsDisk ? .on : .off
+        diskUsedToggleItem.state = settings.showsDiskUsed ? .on : .off
+        diskFreeToggleItem.state = settings.showsDiskFree ? .on : .off
     }
 
     private func update() {
@@ -148,19 +167,38 @@ final class MenuBarController: NSObject {
     }
 
     private func renderTitle(for snapshot: SystemSnapshot) {
-        let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
-        let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: title, memoryPressure: snapshot.memory.pressure)
-        statusItem.length = MenuBarAttributedTitleFactory.statusItemLength(for: attributedTitle)
-        statusItem.button?.title = ""
-        statusItem.button?.alignment = .center
-        statusItem.button?.attributedTitle = attributedTitle
+        let model = MenuBarMetricsViewModelFactory.viewModel(for: snapshot, settings: settings)
+        let length = MenuBarMetricsView.statusItemLength(for: model)
+        statusItem.length = length
+
+        guard let button = statusItem.button else {
+            return
+        }
+
+        button.title = ""
+        button.attributedTitle = NSAttributedString(string: "")
+        button.alignment = .center
+
+        let view: MenuBarMetricsView
+        if let metricsView {
+            view = metricsView
+            view.update(model: model)
+        } else {
+            view = MenuBarMetricsView(model: model)
+            view.autoresizingMask = [.width, .height]
+            button.addSubview(view)
+            metricsView = view
+        }
+
+        view.frame = NSRect(x: 0, y: 0, width: length, height: NSStatusBar.system.thickness)
     }
 
     private func updateDetailItems(for snapshot: SystemSnapshot) {
         cpuItem.title = "CPU: \(MetricFormatter.percent(snapshot.cpu.active))"
+        cpuLoadItem.title = "CPU Load: \(MetricFormatter.compactLoadPressure(snapshot.cpuLoad))"
         memoryItem.title = "Memory: \(MetricFormatter.percent(snapshot.memory.percentage)) (\(MetricFormatter.bytes(snapshot.memory.usedBytes)) / \(MetricFormatter.bytes(snapshot.memory.totalBytes)))"
         memoryPressureItem.title = "Memory Pressure: \(MetricFormatter.memoryPressure(snapshot.memory.pressure))"
-        diskItem.title = "Disk: \(MetricFormatter.percent(snapshot.disk.percentage)) (\(MetricFormatter.bytes(snapshot.disk.usedBytes)) / \(MetricFormatter.bytes(snapshot.disk.totalBytes)))"
+        diskItem.title = "Disk: \(MetricFormatter.percent(snapshot.disk.percentage)) used, \(MetricFormatter.bytes(snapshot.disk.freeBytes)) free (\(MetricFormatter.bytes(snapshot.disk.usedBytes)) / \(MetricFormatter.bytes(snapshot.disk.totalBytes)))"
         uploadItem.title = "Upload: \(MetricFormatter.rate(snapshot.network.transmitBytesPerSecond))"
         downloadItem.title = "Download: \(MetricFormatter.rate(snapshot.network.receiveBytesPerSecond))"
     }

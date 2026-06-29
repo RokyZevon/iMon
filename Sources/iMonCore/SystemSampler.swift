@@ -5,6 +5,7 @@ public final class SystemSampler {
     private let memoryProvider: MemorySampleProvider
     private let diskProvider: DiskSampleProvider
     private let networkProvider: NetworkSampleProvider
+    private let cpuLoadProvider: CPULoadSampleProvider
     private var previousCPU: CPUTicks?
     private var previousNetwork: (counters: NetworkCounters, timestamp: Date)?
 
@@ -12,17 +13,20 @@ public final class SystemSampler {
         cpuProvider: CPUSampleProvider,
         memoryProvider: MemorySampleProvider,
         diskProvider: DiskSampleProvider,
-        networkProvider: NetworkSampleProvider
+        networkProvider: NetworkSampleProvider,
+        cpuLoadProvider: CPULoadSampleProvider = StaticCPULoadProvider(load: .unknown)
     ) {
         self.cpuProvider = cpuProvider
         self.memoryProvider = memoryProvider
         self.diskProvider = diskProvider
         self.networkProvider = networkProvider
+        self.cpuLoadProvider = cpuLoadProvider
     }
 
     public func sample(now: Date = Date()) -> SystemSnapshot {
         let cpuTicks = try? cpuProvider.sample()
         let networkCounters = try? networkProvider.sample()
+        let cpuLoad = cpuLoadProvider.sample()
         let memory = (try? memoryProvider.sample()) ?? MemoryUsage(usedBytes: 0, totalBytes: 0)
         let disk = (try? diskProvider.sample()) ?? DiskUsage(usedBytes: 0, totalBytes: 0)
 
@@ -44,7 +48,7 @@ public final class SystemSampler {
             previousNetwork = nil
         }
 
-        return SystemSnapshot(timestamp: now, cpu: cpu, memory: memory, disk: disk, network: network)
+        return SystemSnapshot(timestamp: now, cpu: cpu, cpuLoad: cpuLoad, memory: memory, disk: disk, network: network)
     }
 
     private func cpuUsage(from previous: CPUTicks?, to current: CPUTicks) -> CPUUsage {
@@ -93,5 +97,17 @@ public final class SystemSampler {
             receiveBytesPerSecond: UInt64(Double(receivedDelta) / elapsed),
             transmitBytesPerSecond: UInt64(Double(transmittedDelta) / elapsed)
         )
+    }
+}
+
+public struct StaticCPULoadProvider: CPULoadSampleProvider {
+    private let load: CPULoadPressure
+
+    public init(load: CPULoadPressure) {
+        self.load = load
+    }
+
+    public func sample() -> CPULoadPressure {
+        load
     }
 }

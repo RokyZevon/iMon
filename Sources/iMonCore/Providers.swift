@@ -26,6 +26,10 @@ public protocol CPUSampleProvider {
     func sample() throws -> CPUTicks
 }
 
+public protocol CPULoadSampleProvider {
+    func sample() -> CPULoadPressure
+}
+
 public protocol MemorySampleProvider {
     func sample() throws -> MemoryUsage
 }
