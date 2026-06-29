@@ -2,120 +2,111 @@
 
 ## Goal
 
-Reduce iMon's menu bar width while preserving glanceable memory usage, memory pressure, and network throughput. The new display should use a compact two-line stack inspired by dense macOS menu bar utilities, but prioritize the simplest Apple-supported implementation path over visual imitation.
+Reduce iMon's menu bar width while preserving glanceable system state. The menu bar must stay compact under changing network throughput, keep upload/download arrows visible, and let users decide exactly which metrics appear.
+
+The product UI is English-only.
 
 ## Current Problem
 
-The current menu bar title is a single text string:
+The earlier compact design still used medium-length text labels for load, pressure, and disk, and it treated disk as one menu-bar option. That creates three problems:
 
-```text
-CPU 18% MEM 62% v 1.2 MB/s ^ 120 KB/s
-```
+- The label column consumes too much menu bar width.
+- A single disk toggle does not match the selected per-metric configuration model.
+- Network value width can shift as rates change, making the status item visually unstable.
 
-This wastes menu bar space because every label and network unit expands horizontally. Network upload and download are also currently shown as peer text fragments instead of a compact paired display.
+CPU frequency was explored and rejected for the current implementation because macOS does not expose a reliable, Apple-supported live CPU-frequency value across modern Apple Silicon machines. CPU load pressure is the replacement metric because it reflects runnable work relative to active processor capacity.
 
 ## Confirmed UX
 
-The default menu bar title will contain two side-by-side stacked groups:
+The menu bar uses a compact two-line metric view. Every visible metric has a short label on the left and a right-aligned value on the right.
 
-- Left group: memory usage on the first line, memory pressure on the second line.
-- Right group: upload on the first line, download on the second line.
+Visible labels are first-letter or symbol labels:
 
-Example:
+- `C`: CPU usage percentage.
+- `L`: CPU load pressure percentage.
+- `M`: memory usage percentage.
+- `P`: memory pressure text.
+- `↑`: upload throughput.
+- `↓`: download throughput.
+- `D`: disk used percentage.
+- `F`: disk free capacity.
+
+The default menu bar shows:
 
 ```text
-MEM USE 62%    ↑  120K
-MEM PRES Low   ↓  1.2M
+C  18%   M  62%   ↑  244K
+L  31%   P  Low   ↓  1.2M
 ```
 
-The network order is intentional: upload is above download. Short network units are used in the menu bar (`120K`, `1.2M`) to keep width low. Full units remain available in the menu details (`120 KB/s`, `1.2 MB/s`).
+The default visible values are:
 
-## Default Visible Values
+- CPU usage (`C`)
+- CPU load pressure (`L`)
+- Memory usage (`M`)
+- Memory pressure (`P`)
+- Upload (`↑`)
+- Download (`↓`)
 
-On first launch, the menu bar shows:
-
-- Memory
-- Memory pressure
-- Upload
-- Download
-
-CPU and disk are not shown in the menu bar by default. CPU and disk remain visible in the detail section of the menu, and users can opt into showing them in the menu bar.
+Disk used (`D`) and disk free (`F`) are available but disabled by default.
 
 ## User Configuration
 
-The user can configure menu bar visibility at the individual value level from the status item menu:
+Every menu bar field is independently configurable from the `Menu Bar` section in the status menu:
 
-- CPU row
-- Memory row
-- Memory pressure row
-- Upload row
-- Download row
-- Disk row
+- `Show CPU Usage (C) in Menu Bar`
+- `Show CPU Load (L) in Menu Bar`
+- `Show Memory Usage (M) in Menu Bar`
+- `Show Memory Pressure (P) in Menu Bar`
+- `Show Upload (↑) in Menu Bar`
+- `Show Download (↓) in Menu Bar`
+- `Show Disk Used (D) in Menu Bar`
+- `Show Disk Free (F) in Menu Bar`
 
-The menu contains a `Menu Bar` section with checkable `NSMenuItem`s. Toggling a row immediately updates the menu bar title and persists the setting. The menu also contains a `Details` section that always shows the complete metric values for CPU, memory, memory pressure, disk, upload, and download.
+Toggling a field immediately updates the menu bar and persists the setting. If all fields in a column are disabled, that column disappears. If every field is disabled, the status item falls back to `iMon` so the menu remains recoverable.
 
-If all rows in a group are disabled, that group disappears from the menu bar and the status item becomes narrower. If only one row in a group is enabled, the enabled value remains visible in that group's stack.
+The `Details` section keeps full English metric names and full units. It may use the short labels only as secondary hints, not as the primary meaning.
+
+## Layout Rules
+
+The menu bar renderer must follow these rules:
+
+- Labels are left-aligned.
+- Values are right-aligned.
+- Upload remains above download.
+- Upload/download arrows remain visible as the network labels.
+- Network values reserve a stable width so the status item does not resize as speeds change.
+- Network rows follow the same layout rule as every other row: arrow label left-aligned, value right-aligned.
+- Network values use a narrow representative reserved width, for example `99.9M`, to reduce the gap without special-casing arrow layout.
+- Kilobyte network values use no decimal point, for example `244K`.
+- Megabyte network values use one decimal place, for example `1.2M`.
+- Memory pressure and CPU load pressure color the value text, not only an adjacent indicator.
+- Dynamic system colors are used for pressure coloring; do not hard-code RGB colors.
+- Spacing should be tight enough for menu bar use, without sacrificing readability.
+
+## Metric Semantics
+
+CPU load pressure is computed from one-minute load average divided by active processor count. It is displayed as a percentage and colored with dynamic system colors:
+
+- Normal: system green.
+- Warning: system yellow.
+- High: system orange.
+- Critical: system red.
+
+Memory pressure keeps the existing macOS-derived pressure semantics and dynamic system colors.
+
+Disk used (`D`) is the root volume used percentage. Disk free (`F`) is root volume free capacity, formatted compactly for the menu bar.
 
 ## Technical Approach
 
-Use the current AppKit architecture and stay on official standard controls:
+Use the current Swift Package + AppKit architecture:
 
 - Keep `NSStatusItem` with `NSStatusItem.variableLength`.
-- Use the standard `statusItem.button` for rendering.
-- Set `statusItem.button?.attributedTitle` to a compact two-line attributed string.
-- Do not use `NSStatusItem.view`, which Apple marks deprecated in the macOS SDK.
-- Keep the existing `NSMenu` structure and add checkable menu items for display settings.
-- Persist display settings with `UserDefaults`.
+- Render the compact layout with a tested AppKit view/helper that computes a stable fitting width.
+- Keep `NSMenu` for details and field toggles.
+- Persist field visibility with `UserDefaults`.
+- Keep pure formatting, settings, and metric semantics in `iMonCore` where practical.
 
-This is the smallest official path for the current codebase. SwiftUI `MenuBarExtra` remains a fallback or future migration option because the project targets macOS 13, but moving the app lifecycle and menu UI to SwiftUI is larger than this focused width reduction.
-
-## Components
-
-### MenuBarDisplaySettings
-
-A small value type or controller-owned helper will define:
-
-- Default row visibility.
-- `UserDefaults` keys.
-- Load/save behavior.
-- Toggle helpers for individual rows.
-
-The default configuration enables memory, memory pressure, upload, and download, and disables CPU and disk.
-
-### MetricFormatter
-
-Add compact menu bar formatting for network throughput:
-
-- Bytes per second below 1024 use `B`.
-- Kilobytes use `K`.
-- Megabytes use `M`.
-- Gigabytes use `G`.
-
-The compact format omits `/s` in the menu bar to save space. Existing `rate(_:)` remains for menu details.
-
-### MenuBarTitleFormatter
-
-Add a formatter that converts a `SystemSnapshot` plus `MenuBarDisplaySettings` into an `NSAttributedString` suitable for the status bar button. It should:
-
-- Preserve the row order: memory usage above memory pressure, upload above download.
-- Use tabular or monospaced digits.
-- Use small system fonts appropriate for a two-line menu bar title.
-- Keep labels short and stable.
-- Return a minimal fallback title if every row is hidden.
-
-### MenuBarController
-
-`MenuBarController` will:
-
-- Load display settings at initialization.
-- Build the menu with configuration items and detail items.
-- Update checkmark state from settings.
-- Re-render the attributed title on every sample and every toggle.
-- Save settings immediately after a toggle.
-
-## Error Handling
-
-Existing sampling fallbacks remain unchanged. Formatting should handle zero or unavailable values without crashing. If every menu bar row is disabled, the status item should still remain visible with a short fallback such as `iMon`, so the user can reopen the menu and re-enable rows.
+The implementation should stay narrowly scoped to the compact menu bar display, menu toggles, and necessary formatting/model support.
 
 ## Verification
 
@@ -126,36 +117,36 @@ Automated checks:
 
 Self-test coverage should include:
 
-- Compact network rate formatting.
-- Default display settings.
-- Toggle behavior and persistence boundaries where practical.
-- Title formatter row order, especially upload above download.
-- Memory pressure labels and coloring.
-- Fallback title when all rows are hidden.
+- Default visibility for `C/L/M/P/↑/↓`, with `D/F` disabled.
+- Independent toggling and persistence for all eight fields.
+- First-letter labels in the menu bar model.
+- Disk used and disk free as separate display fields.
+- Compact network formatting: no decimals for `K`, one decimal for `M`.
+- Stable network display width across representative `K` and `M` values.
+- Value coloring for CPU load pressure and memory pressure.
+- Fallback title when every field is hidden.
 
-Manual verification:
+Manual visual verification:
 
-- Run the app and confirm the menu bar displays two stacked groups.
-- Confirm memory usage appears above memory pressure.
-- Confirm upload appears above download.
-- Confirm menu checkmarks toggle rows immediately.
-- Confirm hiding rows narrows the status item.
-- Confirm the detail menu still shows full CPU, memory, memory pressure, disk, upload, and download values.
+- Run the app and inspect the menu bar.
+- Confirm labels are left-aligned and values are right-aligned.
+- Confirm arrows remain present for upload and download.
+- Confirm network width does not visibly resize when values change.
+- Confirm the popup toggle labels explain the short labels in parentheses.
+- Capture and display the screenshot directly in Codex for user confirmation.
 
-## Fallback Strategy
-
-If `NSStatusBarButton.attributedTitle` cannot render the two-line stack reliably in the real macOS menu bar, do not use deprecated custom status item views. The next official option is to evaluate SwiftUI `MenuBarExtra` for a custom label layout on macOS 13+.
-
-## Out of Scope
+## Out Of Scope
 
 - Preferences window.
 - Charts or historical graphs.
 - Sensors, fans, GPU, battery, or process lists.
-- Full SwiftUI migration unless the AppKit attributed-title approach fails visual verification.
+- Reintroducing CPU frequency without a reliable Apple-supported source.
+- Changing metric collection beyond what is needed for CPU load pressure and disk free display.
+- Full SwiftUI migration.
 
 ## References
 
 - Apple Developer Documentation: [`NSStatusItem`](https://developer.apple.com/documentation/appkit/nsstatusitem)
 - Apple Developer Documentation: [`NSStatusBarButton`](https://developer.apple.com/documentation/appkit/nsstatusbarbutton)
-- Apple Developer Documentation: [`MenuBarExtra`](https://developer.apple.com/documentation/swiftui/menubarextra)
-- Local SDK verification: `NSStatusItem.view` is deprecated in the installed macOS SDK, while `NSStatusItem.button` and `NSButton.attributedTitle` remain available.
+- Apple Developer Documentation: [`NSColor`](https://developer.apple.com/documentation/appkit/nscolor)
+- Local SDK verification: `NSStatusItem.view` is deprecated in the installed macOS SDK, while `NSStatusItem.button` remains available.

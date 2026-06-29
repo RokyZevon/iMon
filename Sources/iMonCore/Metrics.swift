@@ -28,6 +28,55 @@ public struct CPUUsage: Equatable {
     }
 }
 
+public enum CPULoadPressureLevel: Equatable, Sendable {
+    case normal
+    case warning
+    case high
+    case critical
+    case unknown
+}
+
+public struct CPULoadPressure: Equatable, Sendable {
+    public let oneMinuteLoad: Double
+    public let activeProcessorCount: Int
+
+    public init(oneMinuteLoad: Double, activeProcessorCount: Int) {
+        self.oneMinuteLoad = max(0, oneMinuteLoad)
+        self.activeProcessorCount = max(0, activeProcessorCount)
+    }
+
+    public static let unknown = CPULoadPressure(oneMinuteLoad: 0, activeProcessorCount: 0)
+
+    public var isAvailable: Bool {
+        activeProcessorCount > 0
+    }
+
+    public var percentage: Double {
+        guard isAvailable else {
+            return 0
+        }
+        let value = oneMinuteLoad / Double(activeProcessorCount) * 100
+        return (value * 10).rounded() / 10
+    }
+
+    public var level: CPULoadPressureLevel {
+        guard isAvailable else {
+            return .unknown
+        }
+
+        switch percentage {
+        case ..<70:
+            return .normal
+        case 70..<100:
+            return .warning
+        case 100..<150:
+            return .high
+        default:
+            return .critical
+        }
+    }
+}
+
 public struct MemoryUsage: Equatable {
     public let usedBytes: UInt64
     public let totalBytes: UInt64
@@ -63,6 +112,13 @@ public struct DiskUsage: Equatable {
     public var percentage: Double {
         Percentage(used: Double(usedBytes), total: Double(totalBytes)).value
     }
+
+    public var freeBytes: UInt64 {
+        guard totalBytes > usedBytes else {
+            return 0
+        }
+        return totalBytes - usedBytes
+    }
 }
 
 public struct NetworkRate: Equatable {
@@ -78,13 +134,22 @@ public struct NetworkRate: Equatable {
 public struct SystemSnapshot: Equatable {
     public let timestamp: Date
     public let cpu: CPUUsage
+    public let cpuLoad: CPULoadPressure
     public let memory: MemoryUsage
     public let disk: DiskUsage
     public let network: NetworkRate
 
-    public init(timestamp: Date, cpu: CPUUsage, memory: MemoryUsage, disk: DiskUsage, network: NetworkRate) {
+    public init(
+        timestamp: Date,
+        cpu: CPUUsage,
+        cpuLoad: CPULoadPressure = .unknown,
+        memory: MemoryUsage,
+        disk: DiskUsage,
+        network: NetworkRate
+    ) {
         self.timestamp = timestamp
         self.cpu = cpu
+        self.cpuLoad = cpuLoad
         self.memory = memory
         self.disk = disk
         self.network = network
@@ -122,7 +187,19 @@ public enum MetricFormatter {
     }
 
     public static func compactRate(_ bytesPerSecond: UInt64) -> String {
-        leftPad(compactBytes(bytesPerSecond), to: 5)
+        compactNetworkBytes(bytesPerSecond)
+    }
+
+    public static func compactStorage(_ bytes: UInt64) -> String {
+        compactBytes(bytes, integerUnitsStartingAt: 3)
+    }
+
+    public static func compactLoadPressure(_ load: CPULoadPressure) -> String {
+        guard load.isAvailable else {
+            return "--"
+        }
+
+        return percent(load.percentage)
     }
 
     public static func memoryPressure(_ level: MemoryPressureLevel) -> String {
@@ -153,22 +230,22 @@ public enum MetricFormatter {
 
     public static func menuTitle(for snapshot: SystemSnapshot) -> String {
         let memoryRow = menuRow(
-            leftLabel: "MEM USE",
+            leftLabel: "M",
             leftValue: leftPad(percent(snapshot.memory.percentage), to: 4),
             rightLabel: "↑",
-            rightValue: compactRate(snapshot.network.transmitBytesPerSecond)
+            rightValue: leftPad(compactRate(snapshot.network.transmitBytesPerSecond), to: 5)
         )
         let pressureRow = menuRow(
-            leftLabel: "MEM PRES",
+            leftLabel: "P",
             leftValue: compactMemoryPressure(snapshot.memory.pressure),
             rightLabel: "↓",
-            rightValue: compactRate(snapshot.network.receiveBytesPerSecond)
+            rightValue: leftPad(compactRate(snapshot.network.receiveBytesPerSecond), to: 5)
         )
 
         return "\(memoryRow)\n\(pressureRow)"
     }
 
-    private static func compactBytes(_ bytes: UInt64) -> String {
+    private static func compactNetworkBytes(_ bytes: UInt64) -> String {
         let units = ["B", "K", "M", "G", "T"]
         var value = Double(bytes)
         var unitIndex = 0
@@ -178,7 +255,24 @@ public enum MetricFormatter {
             unitIndex += 1
         }
 
-        if unitIndex == 0 {
+        if unitIndex <= 1 {
+            return "\(Int(value.rounded()))\(units[unitIndex])"
+        }
+
+        return String(format: "%.1f%@", value, units[unitIndex])
+    }
+
+    private static func compactBytes(_ bytes: UInt64, integerUnitsStartingAt: Int) -> String {
+        let units = ["B", "K", "M", "G", "T"]
+        var value = Double(bytes)
+        var unitIndex = 0
+
+        while value >= 1024 && unitIndex < units.count - 1 {
+            value /= 1024
+            unitIndex += 1
+        }
+
+        if unitIndex < integerUnitsStartingAt {
             return "\(Int(value))\(units[unitIndex])"
         }
 
@@ -205,6 +299,6 @@ public enum MetricFormatter {
         rightLabel: String,
         rightValue: String
     ) -> String {
-        "\(rightPad(leftLabel, to: 8)) \(leftValue)   \(rightLabel) \(rightValue)"
+        "\(leftLabel) \(leftValue)  \(rightLabel) \(rightValue)"
     }
 }

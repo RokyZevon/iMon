@@ -23,7 +23,7 @@ swift build
 swift run iMon
 ```
 
-The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon. The menu bar title uses compact stacked values by default: memory usage appears above memory pressure, and upload appears above download. Open the status menu and use the `Menu Bar` section to choose which values appear in the menu bar.
+The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon. The menu bar title uses compact stacked values with first-letter labels by default: CPU usage (`C`) appears above CPU load pressure (`L`), memory usage (`M`) appears above memory pressure (`P`), and upload (`↑`) appears above download (`↓`). Open the status menu and use the `Menu Bar` section to choose each field independently; disk used (`D`) and disk free (`F`) are available but disabled by default.
 
 ## Package As A macOS App
 
@@ -47,9 +47,10 @@ This repository uses an executable self-test target instead of XCTest because th
 Implemented:
 
 - CPU usage
+- CPU load pressure
 - Memory usage
 - Memory pressure
-- Disk usage for the root volume
+- Disk usage and free capacity for the root volume
 - Network receive/transmit throughput
 
 Out of scope for this first release:
@@ -71,5 +72,6 @@ Out of scope for this first release:
 ## Notes
 
 - CPU and network throughput are delta-based, so the first sample intentionally shows zero for those metrics until a second sample is available.
+- CPU load pressure is based on the one-minute load average divided by the active processor count.
 - Network counters use macOS `ifmibdata` / `if_data64` counters and skip loopback plus common virtual interfaces.
 - The current output is an unsigned local executable, not a packaged `.app`.

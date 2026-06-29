@@ -53,6 +53,22 @@ public struct MacOSCPUProvider: CPUSampleProvider {
     }
 }
 
+public struct MacOSCPULoadProvider: CPULoadSampleProvider {
+    public init() {}
+
+    public func sample() -> CPULoadPressure {
+        var loads = [Double](repeating: 0, count: 1)
+        guard getloadavg(&loads, 1) == 1 else {
+            return .unknown
+        }
+
+        return CPULoadPressure(
+            oneMinuteLoad: loads[0],
+            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+        )
+    }
+}
+
 public final class MacOSMemoryPressureProvider: MemoryPressureSampleProvider, @unchecked Sendable {
     private let lock = NSLock()
     private let source: any DispatchSourceMemoryPressure
@@ -248,7 +264,8 @@ public extension SystemSampler {
             cpuProvider: MacOSCPUProvider(),
             memoryProvider: MacOSMemoryProvider(),
             diskProvider: MacOSDiskProvider(),
-            networkProvider: MacOSNetworkProvider()
+            networkProvider: MacOSNetworkProvider(),
+            cpuLoadProvider: MacOSCPULoadProvider()
         )
     }
 }
