@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import iMonApp
 import iMonCore
@@ -200,6 +201,28 @@ func testMenuBarAttributedTitleUsesStackedTitleString() throws {
 
     try expectEqual(attributedTitle.string, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "attributed title string")
     try expect(attributedTitle.length > 0, "attributed title has content")
+}
+
+func testMenuBarAttributedTitleAppliesOpticalCenteringAttributes() throws {
+    let stackedTitle = MenuBarStackedTitle(
+        topLine: "CPU 25%  ↑ 128K",
+        bottomLine: "MEM 75%  ↓ 1.5M"
+    )
+
+    let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle)
+    let baselineOffset = attributedTitle.attribute(.baselineOffset, at: 0, effectiveRange: nil) as? CGFloat
+    let paragraphStyle = attributedTitle.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+    let paddedLength = MenuBarAttributedTitleFactory.statusItemLength(for: attributedTitle)
+
+    try expectEqual(baselineOffset, MenuBarAttributedTitleFactory.baselineOffset, "baseline offset")
+    try expect((baselineOffset ?? 0) < 0, "negative baseline offset moves the two-line title down")
+    try expectEqual(paragraphStyle?.alignment, .center, "paragraph alignment")
+    try expectEqual(paragraphStyle?.minimumLineHeight, MenuBarAttributedTitleFactory.lineHeight, "minimum line height")
+    try expectEqual(paragraphStyle?.maximumLineHeight, MenuBarAttributedTitleFactory.lineHeight, "maximum line height")
+    try expect(
+        paddedLength >= ceil(attributedTitle.size().width) + MenuBarAttributedTitleFactory.horizontalPadding * 2,
+        "status item length includes horizontal padding"
+    )
 }
 
 func testMenuBarSectionItemIsDisabled() throws {
@@ -465,6 +488,7 @@ let tests: [(String, () throws -> Void)] = [
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu bar attributed title uses stacked title string", testMenuBarAttributedTitleUsesStackedTitleString),
+    ("menu bar attributed title applies optical centering attributes", testMenuBarAttributedTitleAppliesOpticalCenteringAttributes),
     ("menu bar section item is disabled", testMenuBarSectionItemIsDisabled),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
