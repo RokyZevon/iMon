@@ -238,6 +238,7 @@ func testMenuBarAttributedTitleColorsMemoryPressureValue() throws {
 
     let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle, memoryPressure: .critical)
     let pressureRange = (attributedTitle.string as NSString).range(of: "High")
+    try expect(pressureRange.location != NSNotFound, "critical pressure label is present")
     let color = attributedTitle.attribute(.foregroundColor, at: pressureRange.location, effectiveRange: nil) as? NSColor
 
     try expectEqual(color, NSColor.systemRed, "critical pressure color")
