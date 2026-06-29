@@ -139,8 +139,11 @@ final class MenuBarController: NSObject {
 
     private func renderTitle(for snapshot: SystemSnapshot) {
         let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
+        let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: title)
+        statusItem.length = MenuBarAttributedTitleFactory.statusItemLength(for: attributedTitle)
         statusItem.button?.title = ""
-        statusItem.button?.attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: title)
+        statusItem.button?.alignment = .center
+        statusItem.button?.attributedTitle = attributedTitle
     }
 
     private func updateDetailItems(for snapshot: SystemSnapshot) {
