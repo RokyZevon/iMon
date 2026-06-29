@@ -248,6 +248,17 @@ func testMenuBarDisplaySettingsStoreUsesDefaultsWhenKeysAreMissing() throws {
     try expectEqual(loaded, .defaults, "missing keys load default settings")
 }
 
+func testMenuBarDisplaySettingsStoreMigratesLegacyDiskToDiskUsedOnly() throws {
+    let defaults = makeIsolatedDefaults(name: "display-store-legacy-disk")
+    defaults.set(true, forKey: "testMenuBar.disk")
+    let store = MenuBarDisplaySettingsStore(defaults: defaults, keyPrefix: "testMenuBar")
+
+    let loaded = store.load()
+
+    try expect(loaded.isVisible(.diskUsed), "legacy disk setting enables disk used")
+    try expect(!loaded.isVisible(.diskFree), "legacy disk setting does not enable disk free")
+}
+
 func testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric() throws {
     var settings = MenuBarDisplaySettings.defaults
 
@@ -815,6 +826,7 @@ let tests: [(String, () throws -> Void)] = [
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
     ("menu bar display settings default rows", testMenuBarDisplaySettingsDefaultRows),
     ("menu bar display settings store uses defaults when keys are missing", testMenuBarDisplaySettingsStoreUsesDefaultsWhenKeysAreMissing),
+    ("menu bar display settings store migrates legacy disk to disk used only", testMenuBarDisplaySettingsStoreMigratesLegacyDiskToDiskUsedOnly),
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu bar attributed title uses stacked title string", testMenuBarAttributedTitleUsesStackedTitleString),

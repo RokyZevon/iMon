@@ -70,7 +70,7 @@ This plan updates that implementation to match the finalized UX decisions in `do
 - [x] Replace the single disk menu-bar field with independent `.diskUsed` and `.diskFree` metrics.
 - [x] Replace the legacy single disk visibility property with independent disk-used and disk-free visibility properties.
 - [x] Keep both disk fields disabled by default.
-- [x] Preserve or migrate legacy `menuBarDisplay.disk` only as a compatibility fallback if it does not complicate the focused change.
+- [x] Migrate legacy `menuBarDisplay.disk` to `.diskUsed` only; do not enable `.diskFree` unless the new disk-free key is explicitly set.
 - [x] Run `swift run iMonCoreSelfTests` and confirm core tests pass or fail only on expected AppKit/UI work.
 
 ## Task 3: Compact View Layout Implementation

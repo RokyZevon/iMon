@@ -49,6 +49,8 @@ The default visible values are:
 
 Disk used (`D`) and disk free (`F`) are available but disabled by default.
 
+If an existing user has the legacy `menuBarDisplay.disk` setting enabled, migrate it to disk used (`D`) only. Disk free (`F`) remains disabled unless its own new setting is explicitly enabled.
+
 ## User Configuration
 
 Every menu bar field is independently configurable from the `Menu Bar` section in the status menu:
