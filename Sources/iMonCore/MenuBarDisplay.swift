@@ -200,7 +200,7 @@ public struct MenuBarDisplaySettingsStore {
             showsUpload: bool(for: .upload, defaultValue: MenuBarDisplaySettings.defaults.showsUpload),
             showsDownload: bool(for: .download, defaultValue: MenuBarDisplaySettings.defaults.showsDownload),
             showsDiskUsed: bool(for: .diskUsed, defaultValue: legacyDiskDefault() ?? MenuBarDisplaySettings.defaults.showsDiskUsed),
-            showsDiskFree: bool(for: .diskFree, defaultValue: legacyDiskDefault() ?? MenuBarDisplaySettings.defaults.showsDiskFree)
+            showsDiskFree: bool(for: .diskFree, defaultValue: MenuBarDisplaySettings.defaults.showsDiskFree)
         )
     }
 
