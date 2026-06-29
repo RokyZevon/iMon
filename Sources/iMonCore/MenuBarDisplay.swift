@@ -3,6 +3,7 @@ import Foundation
 public enum MenuBarDisplayMetric: String, CaseIterable, Equatable, Sendable {
     case cpu
     case memory
+    case memoryPressure
     case upload
     case download
     case disk
@@ -11,6 +12,7 @@ public enum MenuBarDisplayMetric: String, CaseIterable, Equatable, Sendable {
 public struct MenuBarDisplaySettings: Equatable, Sendable {
     public var showsCPU: Bool
     public var showsMemory: Bool
+    public var showsMemoryPressure: Bool
     public var showsUpload: Bool
     public var showsDownload: Bool
     public var showsDisk: Bool
@@ -18,20 +20,23 @@ public struct MenuBarDisplaySettings: Equatable, Sendable {
     public init(
         showsCPU: Bool,
         showsMemory: Bool,
+        showsMemoryPressure: Bool,
         showsUpload: Bool,
         showsDownload: Bool,
         showsDisk: Bool
     ) {
         self.showsCPU = showsCPU
         self.showsMemory = showsMemory
+        self.showsMemoryPressure = showsMemoryPressure
         self.showsUpload = showsUpload
         self.showsDownload = showsDownload
         self.showsDisk = showsDisk
     }
 
     public static let defaults = MenuBarDisplaySettings(
-        showsCPU: true,
+        showsCPU: false,
         showsMemory: true,
+        showsMemoryPressure: true,
         showsUpload: true,
         showsDownload: true,
         showsDisk: false
@@ -43,6 +48,8 @@ public struct MenuBarDisplaySettings: Equatable, Sendable {
             return showsCPU
         case .memory:
             return showsMemory
+        case .memoryPressure:
+            return showsMemoryPressure
         case .upload:
             return showsUpload
         case .download:
@@ -58,6 +65,8 @@ public struct MenuBarDisplaySettings: Equatable, Sendable {
             showsCPU.toggle()
         case .memory:
             showsMemory.toggle()
+        case .memoryPressure:
+            showsMemoryPressure.toggle()
         case .upload:
             showsUpload.toggle()
         case .download:
@@ -92,12 +101,20 @@ public enum MenuBarTitleFormatter {
     ) -> MenuBarStackedTitle {
         var columns: [(top: String, bottom: String)] = []
 
-        let cpuMemoryColumn = column(
+        let cpuColumn = column(
             top: settings.showsCPU ? "CPU \(MetricFormatter.percent(snapshot.cpu.active))" : "",
-            bottom: settings.showsMemory ? "MEM \(MetricFormatter.percent(snapshot.memory.percentage))" : ""
+            bottom: ""
         )
-        if let cpuMemoryColumn {
-            columns.append(cpuMemoryColumn)
+        if let cpuColumn {
+            columns.append(cpuColumn)
+        }
+
+        let memoryColumn = column(
+            top: settings.showsMemory ? metricValue(label: "MEM USE", value: MetricFormatter.percent(snapshot.memory.percentage), width: 4) : "",
+            bottom: settings.showsMemoryPressure ? metricValue(label: "MEM PRES", value: MetricFormatter.compactMemoryPressure(snapshot.memory.pressure), width: 4) : ""
+        )
+        if let memoryColumn {
+            columns.append(memoryColumn)
         }
 
         let networkColumn = column(
@@ -137,6 +154,10 @@ public enum MenuBarTitleFormatter {
             bottom: bottom.padding(toLength: width, withPad: " ", startingAt: 0)
         )
     }
+
+    private static func metricValue(label: String, value: String, width: Int) -> String {
+        "\(label.padding(toLength: 8, withPad: " ", startingAt: 0)) \(value.leftPadded(to: width))"
+    }
 }
 
 public struct MenuBarDisplaySettingsStore {
@@ -152,6 +173,7 @@ public struct MenuBarDisplaySettingsStore {
         MenuBarDisplaySettings(
             showsCPU: bool(for: .cpu, defaultValue: MenuBarDisplaySettings.defaults.showsCPU),
             showsMemory: bool(for: .memory, defaultValue: MenuBarDisplaySettings.defaults.showsMemory),
+            showsMemoryPressure: bool(for: .memoryPressure, defaultValue: MenuBarDisplaySettings.defaults.showsMemoryPressure),
             showsUpload: bool(for: .upload, defaultValue: MenuBarDisplaySettings.defaults.showsUpload),
             showsDownload: bool(for: .download, defaultValue: MenuBarDisplaySettings.defaults.showsDownload),
             showsDisk: bool(for: .disk, defaultValue: MenuBarDisplaySettings.defaults.showsDisk)
@@ -161,6 +183,7 @@ public struct MenuBarDisplaySettingsStore {
     public func save(_ settings: MenuBarDisplaySettings) {
         defaults.set(settings.showsCPU, forKey: key(for: .cpu))
         defaults.set(settings.showsMemory, forKey: key(for: .memory))
+        defaults.set(settings.showsMemoryPressure, forKey: key(for: .memoryPressure))
         defaults.set(settings.showsUpload, forKey: key(for: .upload))
         defaults.set(settings.showsDownload, forKey: key(for: .download))
         defaults.set(settings.showsDisk, forKey: key(for: .disk))
@@ -180,6 +203,11 @@ public struct MenuBarDisplaySettingsStore {
 }
 
 private extension String {
+    func leftPadded(to width: Int) -> String {
+        let padding = max(0, width - count)
+        return String(repeating: " ", count: padding) + self
+    }
+
     func trimmingTrailingSpaces() -> String {
         var result = self
         while result.last?.isWhitespace == true {

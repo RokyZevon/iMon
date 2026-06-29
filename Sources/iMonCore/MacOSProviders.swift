@@ -1,4 +1,5 @@
 import Darwin
+@preconcurrency import Dispatch
 import Foundation
 
 public struct MacOSCPUProvider: CPUSampleProvider {
@@ -52,8 +53,65 @@ public struct MacOSCPUProvider: CPUSampleProvider {
     }
 }
 
-public struct MacOSMemoryProvider: MemorySampleProvider {
-    public init() {}
+public final class MacOSMemoryPressureProvider: MemoryPressureSampleProvider, @unchecked Sendable {
+    private let lock = NSLock()
+    private let source: any DispatchSourceMemoryPressure
+    private var currentLevel: MemoryPressureLevel
+
+    public init(initialLevel: MemoryPressureLevel = .normal) {
+        self.currentLevel = initialLevel
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: .all,
+            queue: DispatchQueue(label: "iMon.memory-pressure")
+        )
+        self.source = source
+
+        source.setEventHandler { [weak self, weak source] in
+            guard let source else {
+                return
+            }
+            self?.updateLevel(from: source.data)
+        }
+        source.resume()
+    }
+
+    deinit {
+        source.cancel()
+    }
+
+    public func sample() -> MemoryPressureLevel {
+        lock.lock()
+        defer { lock.unlock() }
+        return currentLevel
+    }
+
+    public static func level(for event: DispatchSource.MemoryPressureEvent) -> MemoryPressureLevel {
+        if event.contains(.critical) {
+            return .critical
+        }
+        if event.contains(.warning) {
+            return .warning
+        }
+        if event.contains(.normal) {
+            return .normal
+        }
+        return .unknown
+    }
+
+    private func updateLevel(from event: DispatchSource.MemoryPressureEvent) {
+        let level = Self.level(for: event)
+        lock.lock()
+        currentLevel = level
+        lock.unlock()
+    }
+}
+
+public final class MacOSMemoryProvider: MemorySampleProvider {
+    private let pressureProvider: MemoryPressureSampleProvider
+
+    public init(pressureProvider: MemoryPressureSampleProvider = MacOSMemoryPressureProvider()) {
+        self.pressureProvider = pressureProvider
+    }
 
     public func sample() throws -> MemoryUsage {
         var stats = vm_statistics64()
@@ -80,7 +138,7 @@ public struct MacOSMemoryProvider: MemorySampleProvider {
         let usedPages = UInt64(stats.active_count + stats.inactive_count + stats.wire_count + stats.compressor_page_count)
         let total = ProcessInfo.processInfo.physicalMemory
 
-        return MemoryUsage(usedBytes: usedPages * page, totalBytes: total)
+        return MemoryUsage(usedBytes: usedPages * page, totalBytes: total, pressure: pressureProvider.sample())
     }
 }
 

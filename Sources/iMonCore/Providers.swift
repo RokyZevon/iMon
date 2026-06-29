@@ -30,6 +30,10 @@ public protocol MemorySampleProvider {
     func sample() throws -> MemoryUsage
 }
 
+public protocol MemoryPressureSampleProvider {
+    func sample() -> MemoryPressureLevel
+}
+
 public protocol DiskSampleProvider {
     func sample() throws -> DiskUsage
 }
