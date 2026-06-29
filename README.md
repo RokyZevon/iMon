@@ -1,6 +1,6 @@
 # iMon
 
-iMon is a lightweight open source macOS menu bar monitor inspired by iStat. This first release monitors CPU, memory, disk usage, and network throughput.
+iMon is a lightweight open source macOS menu bar monitor inspired by iStat. This first release monitors CPU, memory usage and pressure, disk usage, and network throughput.
 
 License: MIT.
 
@@ -23,7 +23,7 @@ swift build
 swift run iMon
 ```
 
-The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon. The menu bar title uses compact stacked values by default: CPU appears above memory, and upload appears above download. Open the status menu and use the `Menu Bar` section to choose which values appear in the menu bar.
+The app appears in the macOS menu bar and uses accessory activation policy, so it does not show a Dock icon. The menu bar title uses compact stacked values by default: memory usage appears above memory pressure, and upload appears above download. Open the status menu and use the `Menu Bar` section to choose which values appear in the menu bar.
 
 ## Package As A macOS App
 
@@ -48,6 +48,7 @@ Implemented:
 
 - CPU usage
 - Memory usage
+- Memory pressure
 - Disk usage for the root volume
 - Network receive/transmit throughput
 

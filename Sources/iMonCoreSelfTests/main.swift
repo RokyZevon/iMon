@@ -1,4 +1,5 @@
 import AppKit
+import Dispatch
 import Foundation
 import iMonApp
 import iMonCore
@@ -46,28 +47,48 @@ func testByteFormatterUsesCompactBinaryUnits() throws {
 }
 
 func testCompactRateFormatterOmitsPerSecondForMenuBar() throws {
-    try expectEqual(MetricFormatter.compactRate(0), "0B", "zero compact rate")
-    try expectEqual(MetricFormatter.compactRate(512), "512B", "byte compact rate")
-    try expectEqual(MetricFormatter.compactRate(1_024), "1K", "one kilobyte compact rate")
-    try expectEqual(MetricFormatter.compactRate(131_072), "128K", "kilobyte compact rate")
-    try expectEqual(MetricFormatter.compactRate(1_572_864), "1.5M", "megabyte compact rate")
-    try expectEqual(MetricFormatter.compactRate(1_610_612_736), "1.5G", "gigabyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(0), "   0B", "zero compact rate")
+    try expectEqual(MetricFormatter.compactRate(512), " 512B", "byte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_024), "   1K", "one kilobyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(131_072), " 128K", "kilobyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_572_864), " 1.5M", "megabyte compact rate")
+    try expectEqual(MetricFormatter.compactRate(1_610_612_736), " 1.5G", "gigabyte compact rate")
 }
 
-func testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload() throws {
+func testMemoryUsageCarriesPressureLevel() throws {
+    let memory = MemoryUsage(
+        usedBytes: 6_442_450_944,
+        totalBytes: 8_589_934_592,
+        pressure: .warning
+    )
+
+    try expectEqual(memory.percentage, 75, "memory percentage")
+    try expectEqual(memory.pressure, .warning, "memory pressure")
+}
+
+func testPressureFormatterUsesEnglishLabels() throws {
+    try expectEqual(MetricFormatter.memoryPressure(.normal), "Normal", "normal pressure label")
+    try expectEqual(MetricFormatter.memoryPressure(.warning), "Warning", "warning pressure label")
+    try expectEqual(MetricFormatter.memoryPressure(.critical), "Critical", "critical pressure label")
+    try expectEqual(MetricFormatter.compactMemoryPressure(.normal), " Low", "normal compact pressure")
+    try expectEqual(MetricFormatter.compactMemoryPressure(.warning), " Mid", "warning compact pressure")
+    try expectEqual(MetricFormatter.compactMemoryPressure(.critical), "High", "critical compact pressure")
+}
+
+func testStackedMenuTitleUsesMemoryPressureAndUploadOverDownloadByDefault() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
         cpu: CPUUsage(user: 10, system: 15, idle: 75),
-        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592),
+        memory: MemoryUsage(usedBytes: 6_442_450_944, totalBytes: 8_589_934_592, pressure: .warning),
         disk: DiskUsage(usedBytes: 50, totalBytes: 100),
         network: NetworkRate(receiveBytesPerSecond: 1_572_864, transmitBytesPerSecond: 131_072)
     )
 
     let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: .defaults)
 
-    try expectEqual(title.topLine, "CPU 25%  ↑ 128K", "top line")
-    try expectEqual(title.bottomLine, "MEM 75%  ↓ 1.5M", "bottom line")
-    try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "stacked title string")
+    try expectEqual(title.topLine, "MEM USE   75%  ↑  128K", "top line")
+    try expectEqual(title.bottomLine, "MEM PRES  Mid  ↓  1.5M", "bottom line")
+    try expectEqual(title.stringValue, "MEM USE   75%  ↑  128K\nMEM PRES  Mid  ↓  1.5M", "stacked title string")
 }
 
 func testStackedMenuTitleCanIncludeDiskWhenConfigured() throws {
@@ -81,6 +102,7 @@ func testStackedMenuTitleCanIncludeDiskWhenConfigured() throws {
     let settings = MenuBarDisplaySettings(
         showsCPU: true,
         showsMemory: true,
+        showsMemoryPressure: true,
         showsUpload: true,
         showsDownload: true,
         showsDisk: true
@@ -88,8 +110,8 @@ func testStackedMenuTitleCanIncludeDiskWhenConfigured() throws {
 
     let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
 
-    try expectEqual(title.topLine, "CPU 25%  ↑ 128K  DSK 50%", "top line with disk")
-    try expectEqual(title.bottomLine, "MEM 75%  ↓ 1.5M", "bottom line with disk")
+    try expectEqual(title.topLine, "CPU 25%  MEM USE   75%  ↑  128K  DSK 50%", "top line with disk")
+    try expectEqual(title.bottomLine, "         MEM PRES  Low  ↓  1.5M", "bottom line with disk")
 }
 
 func testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility() throws {
@@ -103,6 +125,7 @@ func testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility() throws {
     let settings = MenuBarDisplaySettings(
         showsCPU: true,
         showsMemory: false,
+        showsMemoryPressure: false,
         showsUpload: true,
         showsDownload: true,
         showsDisk: false
@@ -110,9 +133,9 @@ func testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility() throws {
 
     let title = MenuBarTitleFormatter.stackedTitle(for: snapshot, settings: settings)
 
-    try expectEqual(title.topLine, "CPU 25%  ↑ 128K", "top line")
-    try expectEqual(title.bottomLine, "         ↓ 1.5M", "bottom line")
-    try expectEqual(title.stringValue, "CPU 25%  ↑ 128K\n         ↓ 1.5M", "stacked title string")
+    try expectEqual(title.topLine, "CPU 25%  ↑  128K", "top line")
+    try expectEqual(title.bottomLine, "         ↓  1.5M", "bottom line")
+    try expectEqual(title.stringValue, "CPU 25%  ↑  128K\n         ↓  1.5M", "stacked title string")
 }
 
 func testStackedMenuTitleFallsBackWhenEveryRowIsHidden() throws {
@@ -126,6 +149,7 @@ func testStackedMenuTitleFallsBackWhenEveryRowIsHidden() throws {
     let settings = MenuBarDisplaySettings(
         showsCPU: false,
         showsMemory: false,
+        showsMemoryPressure: false,
         showsUpload: false,
         showsDownload: false,
         showsDisk: false
@@ -150,8 +174,9 @@ func makeIsolatedDefaults(name: String) -> UserDefaults {
 func testMenuBarDisplaySettingsDefaultRows() throws {
     let settings = MenuBarDisplaySettings.defaults
 
-    try expect(settings.isVisible(.cpu), "CPU visible by default")
+    try expect(!settings.isVisible(.cpu), "CPU hidden by default")
     try expect(settings.isVisible(.memory), "memory visible by default")
+    try expect(settings.isVisible(.memoryPressure), "memory pressure visible by default")
     try expect(settings.isVisible(.upload), "upload visible by default")
     try expect(settings.isVisible(.download), "download visible by default")
     try expect(!settings.isVisible(.disk), "disk hidden by default")
@@ -171,8 +196,9 @@ func testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric() throws {
 
     settings.toggle(.upload)
 
-    try expect(settings.isVisible(.cpu), "CPU remains visible")
+    try expect(!settings.isVisible(.cpu), "CPU remains hidden")
     try expect(settings.isVisible(.memory), "memory remains visible")
+    try expect(settings.isVisible(.memoryPressure), "memory pressure remains visible")
     try expect(!settings.isVisible(.upload), "upload toggled off")
     try expect(settings.isVisible(.download), "download remains visible")
     try expect(!settings.isVisible(.disk), "disk remains hidden")
@@ -183,6 +209,7 @@ func testMenuBarDisplaySettingsStorePersistsRows() throws {
     let store = MenuBarDisplaySettingsStore(defaults: defaults, keyPrefix: "testMenuBar")
     var settings = MenuBarDisplaySettings.defaults
     settings.toggle(.cpu)
+    settings.toggle(.memoryPressure)
     settings.toggle(.disk)
 
     store.save(settings)
@@ -193,20 +220,33 @@ func testMenuBarDisplaySettingsStorePersistsRows() throws {
 
 func testMenuBarAttributedTitleUsesStackedTitleString() throws {
     let stackedTitle = MenuBarStackedTitle(
-        topLine: "CPU 25%  ↑ 128K",
-        bottomLine: "MEM 75%  ↓ 1.5M"
+        topLine: "MEM USE   75%  ↑  128K",
+        bottomLine: "MEM PRES  Mid  ↓  1.5M"
     )
 
     let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle)
 
-    try expectEqual(attributedTitle.string, "CPU 25%  ↑ 128K\nMEM 75%  ↓ 1.5M", "attributed title string")
+    try expectEqual(attributedTitle.string, "MEM USE   75%  ↑  128K\nMEM PRES  Mid  ↓  1.5M", "attributed title string")
     try expect(attributedTitle.length > 0, "attributed title has content")
+}
+
+func testMenuBarAttributedTitleColorsMemoryPressureValue() throws {
+    let stackedTitle = MenuBarStackedTitle(
+        topLine: "MEM USE   75%  ↑  128K",
+        bottomLine: "MEM PRES High  ↓  1.5M"
+    )
+
+    let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle, memoryPressure: .critical)
+    let pressureRange = (attributedTitle.string as NSString).range(of: "High")
+    let color = attributedTitle.attribute(.foregroundColor, at: pressureRange.location, effectiveRange: nil) as? NSColor
+
+    try expectEqual(color, NSColor.systemRed, "critical pressure color")
 }
 
 func testMenuBarAttributedTitleAppliesOpticalCenteringAttributes() throws {
     let stackedTitle = MenuBarStackedTitle(
-        topLine: "CPU 25%  ↑ 128K",
-        bottomLine: "MEM 75%  ↓ 1.5M"
+        topLine: "MEM USE   75%  ↑  128K",
+        bottomLine: "MEM PRES  Mid  ↓  1.5M"
     )
 
     let attributedTitle = MenuBarAttributedTitleFactory.attributedTitle(for: stackedTitle)
@@ -244,7 +284,7 @@ func testMenuTitleShowsCoreMetrics() throws {
 
     try expectEqual(
         MetricFormatter.menuTitle(for: snapshot),
-        "CPU 25% MEM 75% v 1.5 MB/s ^ 128 KB/s",
+        "MEM USE   75%   ↑  128K\nMEM PRES  Low   ↓  1.5M",
         "menu title"
     )
 }
@@ -264,6 +304,14 @@ private final class FakeCPUProvider: CPUSampleProvider {
 private final class FakeMemoryProvider: MemorySampleProvider {
     func sample() throws -> MemoryUsage {
         MemoryUsage(usedBytes: 4_294_967_296, totalBytes: 8_589_934_592)
+    }
+}
+
+private struct FixedMemoryPressureProvider: MemoryPressureSampleProvider {
+    let level: MemoryPressureLevel
+
+    func sample() -> MemoryPressureLevel {
+        level
     }
 }
 
@@ -461,6 +509,25 @@ func testDefaultSamplerCanBeConstructed() throws {
     try expect(snapshot.disk.totalBytes >= 0, "live disk total is non-negative")
 }
 
+func testMemoryPressureProviderMapsDispatchEvents() throws {
+    try expectEqual(MacOSMemoryPressureProvider.level(for: .normal), .normal, "normal pressure event")
+    try expectEqual(MacOSMemoryPressureProvider.level(for: .warning), .warning, "warning pressure event")
+    try expectEqual(MacOSMemoryPressureProvider.level(for: .critical), .critical, "critical pressure event")
+    try expectEqual(
+        MacOSMemoryPressureProvider.level(for: [.warning, .critical]),
+        .critical,
+        "critical pressure wins combined events"
+    )
+}
+
+func testMacOSMemoryProviderIncludesPressureSample() throws {
+    let memory = try MacOSMemoryProvider(
+        pressureProvider: FixedMemoryPressureProvider(level: .critical)
+    ).sample()
+
+    try expectEqual(memory.pressure, .critical, "macOS memory provider pressure")
+}
+
 func testLiveProvidersReturnPlausibleSamples() throws {
     let cpu = try MacOSCPUProvider().sample()
     let memory = try MacOSMemoryProvider().sample()
@@ -479,7 +546,9 @@ let tests: [(String, () throws -> Void)] = [
     ("percentage clamps into display range", testPercentageClampsIntoDisplayRange),
     ("byte formatter uses compact binary units", testByteFormatterUsesCompactBinaryUnits),
     ("compact rate formatter omits per-second for menu bar", testCompactRateFormatterOmitsPerSecondForMenuBar),
-    ("stacked menu title uses CPU over memory and upload over download", testStackedMenuTitleUsesCPUOverMemoryAndUploadOverDownload),
+    ("memory usage carries pressure level", testMemoryUsageCarriesPressureLevel),
+    ("pressure formatter uses English labels", testPressureFormatterUsesEnglishLabels),
+    ("stacked menu title uses memory pressure and upload over download by default", testStackedMenuTitleUsesMemoryPressureAndUploadOverDownloadByDefault),
     ("stacked menu title can include disk when configured", testStackedMenuTitleCanIncludeDiskWhenConfigured),
     ("stacked menu title preserves leading padding for partial visibility", testStackedMenuTitlePreservesLeadingPaddingForPartialVisibility),
     ("stacked menu title falls back when every row is hidden", testStackedMenuTitleFallsBackWhenEveryRowIsHidden),
@@ -488,6 +557,7 @@ let tests: [(String, () throws -> Void)] = [
     ("menu bar display settings toggle changes only selected metric", testMenuBarDisplaySettingsToggleChangesOnlySelectedMetric),
     ("menu bar display settings store persists rows", testMenuBarDisplaySettingsStorePersistsRows),
     ("menu bar attributed title uses stacked title string", testMenuBarAttributedTitleUsesStackedTitleString),
+    ("menu bar attributed title colors memory pressure value", testMenuBarAttributedTitleColorsMemoryPressureValue),
     ("menu bar attributed title applies optical centering attributes", testMenuBarAttributedTitleAppliesOpticalCenteringAttributes),
     ("menu bar section item is disabled", testMenuBarSectionItemIsDisabled),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
@@ -498,6 +568,8 @@ let tests: [(String, () throws -> Void)] = [
     ("non-positive elapsed time returns zero network rate", testNonPositiveElapsedTimeReturnsZeroNetworkRate),
     ("provider failure resets delta baselines", testProviderFailureResetsDeltaBaselines),
     ("default sampler can be constructed", testDefaultSamplerCanBeConstructed),
+    ("memory pressure provider maps dispatch events", testMemoryPressureProviderMapsDispatchEvents),
+    ("macOS memory provider includes pressure sample", testMacOSMemoryProviderIncludesPressureSample),
     ("live providers return plausible samples", testLiveProvidersReturnPlausibleSamples)
 ]
 

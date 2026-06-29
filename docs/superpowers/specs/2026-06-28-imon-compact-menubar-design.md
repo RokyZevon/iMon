@@ -2,7 +2,7 @@
 
 ## Goal
 
-Reduce iMon's menu bar width while preserving glanceable CPU, memory, and network throughput. The new display should use a compact two-line stack inspired by dense macOS menu bar utilities, but prioritize the simplest Apple-supported implementation path over visual imitation.
+Reduce iMon's menu bar width while preserving glanceable memory usage, memory pressure, and network throughput. The new display should use a compact two-line stack inspired by dense macOS menu bar utilities, but prioritize the simplest Apple-supported implementation path over visual imitation.
 
 ## Current Problem
 
@@ -18,14 +18,14 @@ This wastes menu bar space because every label and network unit expands horizont
 
 The default menu bar title will contain two side-by-side stacked groups:
 
-- Left group: `CPU` on the first line, `MEM` on the second line.
+- Left group: memory usage on the first line, memory pressure on the second line.
 - Right group: upload on the first line, download on the second line.
 
 Example:
 
 ```text
-CPU 18%   ↑ 120K
-MEM 62%   ↓ 1.2M
+MEM USE 62%    ↑  120K
+MEM PRES Low   ↓  1.2M
 ```
 
 The network order is intentional: upload is above download. Short network units are used in the menu bar (`120K`, `1.2M`) to keep width low. Full units remain available in the menu details (`120 KB/s`, `1.2 MB/s`).
@@ -34,12 +34,12 @@ The network order is intentional: upload is above download. Short network units 
 
 On first launch, the menu bar shows:
 
-- CPU
 - Memory
+- Memory pressure
 - Upload
 - Download
 
-Disk is not shown in the menu bar by default. Disk remains visible in the detail section of the menu, and users can opt into showing it in the menu bar.
+CPU and disk are not shown in the menu bar by default. CPU and disk remain visible in the detail section of the menu, and users can opt into showing them in the menu bar.
 
 ## User Configuration
 
@@ -47,11 +47,12 @@ The user can configure menu bar visibility at the individual value level from th
 
 - CPU row
 - Memory row
+- Memory pressure row
 - Upload row
 - Download row
 - Disk row
 
-The menu contains a `Menu Bar` section with checkable `NSMenuItem`s. Toggling a row immediately updates the menu bar title and persists the setting. The menu also contains a `Details` section that always shows the complete metric values for CPU, memory, disk, upload, and download.
+The menu contains a `Menu Bar` section with checkable `NSMenuItem`s. Toggling a row immediately updates the menu bar title and persists the setting. The menu also contains a `Details` section that always shows the complete metric values for CPU, memory, memory pressure, disk, upload, and download.
 
 If all rows in a group are disabled, that group disappears from the menu bar and the status item becomes narrower. If only one row in a group is enabled, the enabled value remains visible in that group's stack.
 
@@ -79,7 +80,7 @@ A small value type or controller-owned helper will define:
 - Load/save behavior.
 - Toggle helpers for individual rows.
 
-The default configuration enables CPU, memory, upload, and download, and disables disk.
+The default configuration enables memory, memory pressure, upload, and download, and disables CPU and disk.
 
 ### MetricFormatter
 
@@ -96,7 +97,7 @@ The compact format omits `/s` in the menu bar to save space. Existing `rate(_:)`
 
 Add a formatter that converts a `SystemSnapshot` plus `MenuBarDisplaySettings` into an `NSAttributedString` suitable for the status bar button. It should:
 
-- Preserve the row order: CPU above memory, upload above download.
+- Preserve the row order: memory usage above memory pressure, upload above download.
 - Use tabular or monospaced digits.
 - Use small system fonts appropriate for a two-line menu bar title.
 - Keep labels short and stable.
@@ -129,15 +130,17 @@ Self-test coverage should include:
 - Default display settings.
 - Toggle behavior and persistence boundaries where practical.
 - Title formatter row order, especially upload above download.
+- Memory pressure labels and coloring.
 - Fallback title when all rows are hidden.
 
 Manual verification:
 
 - Run the app and confirm the menu bar displays two stacked groups.
+- Confirm memory usage appears above memory pressure.
 - Confirm upload appears above download.
 - Confirm menu checkmarks toggle rows immediately.
 - Confirm hiding rows narrows the status item.
-- Confirm the detail menu still shows full CPU, memory, disk, upload, and download values.
+- Confirm the detail menu still shows full CPU, memory, memory pressure, disk, upload, and download values.
 
 ## Fallback Strategy
 
