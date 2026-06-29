@@ -23,7 +23,7 @@ jobs:
         run: swift run iMonCoreSelfTests
 
       - name: Package app
-        run: scripts/package_app.sh
+        run: bash scripts/package_app.sh
 
       - name: Create release archive
         id: archive
