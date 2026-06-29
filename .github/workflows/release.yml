@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build macOS release
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Run self-tests
+        run: swift run iMonCoreSelfTests
+
+      - name: Package app
+        run: scripts/package_app.sh
+
+      - name: Create release archive
+        id: archive
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          safe_tag="${tag//\//-}"
+          archive="dist/iMon-${safe_tag}-macos.zip"
+
+          ditto -c -k --keepParent dist/iMon.app "$archive"
+          echo "path=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Upload archive to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload \
+            "${{ github.event.release.tag_name }}" \
+            "${{ steps.archive.outputs.path }}" \
+            --repo "${{ github.repository }}" \
+            --clobber
