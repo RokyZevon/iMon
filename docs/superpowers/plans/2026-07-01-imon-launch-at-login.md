@@ -581,7 +581,7 @@ swift build
 git diff --check
 ```
 
-Expected: 49 self-tests pass, build passes, diff check has no output.
+Expected: self-tests pass, build passes, diff check has no output.
 
 - [ ] **Step 2: Package the app**
 
