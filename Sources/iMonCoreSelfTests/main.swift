@@ -660,6 +660,21 @@ func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
     try expect(logSink.messages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
 }
 
+@MainActor
+func testLoginItemMenuLogsAndRefreshesAfterUnregisterFailure() throws {
+    let service = FakeLoginItemService(statuses: [.enabled, .enabled, .enabled])
+    service.unregisterError = FakeProviderError.unavailable
+    let (controller, launchItem, settingsItem, logSink) = makeLoginItemController(service: service)
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.unregisterCallCount, 1, "unregister was attempted")
+    try expectEqual(service.registerCallCount, 0, "failed unregister does not call register")
+    try expectEqual(launchItem.state, .on, "failed unregister refreshes state")
+    try expect(settingsItem.isHidden, "failed unregister keeps settings item hidden when still enabled")
+    try expect(logSink.messages.contains { $0.hasPrefix("Unable to disable launch at login:") }, "unregister failure is logged")
+}
+
 func testLoginItemStatusMapsServiceManagementStatuses() throws {
     try expectEqual(LoginItemStatus(serviceManagementStatus: .notRegistered), .notRegistered, "not registered mapping")
     try expectEqual(LoginItemStatus(serviceManagementStatus: .enabled), .enabled, "enabled mapping")
@@ -998,6 +1013,7 @@ let tests: [(String, () throws -> Void)] = [
     ("login item menu opens settings when approval is required", { try MainActor.assumeIsolated { try testLoginItemMenuOpensSettingsWhenApprovalIsRequired() } }),
     ("login item menu disables when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuDisablesWhenServiceIsNotFound() } }),
     ("login item menu logs and refreshes after register failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() } }),
+    ("login item menu logs and refreshes after unregister failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterUnregisterFailure() } }),
     ("login item status maps ServiceManagement statuses", testLoginItemStatusMapsServiceManagementStatuses),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
