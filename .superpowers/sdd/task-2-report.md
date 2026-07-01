@@ -85,3 +85,33 @@ All 49 self-tests passed
 - `ServiceManagementLoginItemService` uses direct `SMAppService` delegation with `@unknown default` mapped to `.notFound`, which is conservative for future OS additions.
 - The only test adjustment was the minimal Swift 6 actor/access-control fix permitted by the brief.
 - No functional concerns remain from this task. The one behavioral nuance is intentional: the controller does not call `refresh()` after the `.requiresApproval` path because that path only hands off to System Settings and the Task 1 tests define that contract.
+
+## Follow-up fix for review findings
+
+- Removed the cached `currentStatus` from `LoginItemMenuController`.
+- Changed `refresh()` to derive menu state directly from `service.status`.
+- Changed `toggleLaunchAtLogin(_:)` to switch on `service.status` at action time.
+- Changed `toggleLaunchAtLogin(_:)` to call `refresh()` unconditionally after handling `.enabled`, `.notRegistered`, `.requiresApproval`, or `.notFound`.
+- Updated the self-test fake service to track status reads and expanded status sequences where the corrected flow now performs init refresh, action-time status read, and post-action refresh.
+
+## Exact verification command and result for the follow-up fix
+
+Command:
+
+```bash
+swift run iMonCoreSelfTests
+```
+
+Result:
+
+- Exit code `0`
+- `All 49 self-tests passed`
+
+## Files changed for the follow-up fix
+
+- [Sources/iMonApp/LoginItemMenuController.swift](/Users/rokyzevon/dev/projects/iMon/.worktrees/launch-at-login/Sources/iMonApp/LoginItemMenuController.swift)
+- [Sources/iMonCoreSelfTests/main.swift](/Users/rokyzevon/dev/projects/iMon/.worktrees/launch-at-login/Sources/iMonCoreSelfTests/main.swift)
+
+## Concerns for the follow-up fix
+
+- The earlier report section describing cached status and conditional refresh is now obsolete; the code has been corrected to the Apple best-practice behavior required by review.

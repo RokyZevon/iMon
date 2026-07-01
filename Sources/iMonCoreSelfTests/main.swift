@@ -521,6 +521,7 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     private(set) var registerCallCount = 0
     private(set) var unregisterCallCount = 0
     private(set) var openSettingsCallCount = 0
+    private(set) var statusReadCount = 0
     var registerError: Error?
     var unregisterError: Error?
 
@@ -529,7 +530,8 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     }
 
     var status: LoginItemStatus {
-        statuses.removeFirst()
+        statusReadCount += 1
+        return statuses.removeFirst()
     }
 
     func register() throws {
@@ -594,7 +596,7 @@ func testLoginItemMenuShowsNotRegisteredState() throws {
 
 @MainActor
 func testLoginItemMenuRegistersWhenTurnedOn() throws {
-    let service = FakeLoginItemService(statuses: [.notRegistered, .enabled])
+    let service = FakeLoginItemService(statuses: [.notRegistered, .notRegistered, .enabled])
     let (controller, launchItem, _, _) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
@@ -606,7 +608,7 @@ func testLoginItemMenuRegistersWhenTurnedOn() throws {
 
 @MainActor
 func testLoginItemMenuUnregistersWhenTurnedOff() throws {
-    let service = FakeLoginItemService(statuses: [.enabled, .notRegistered])
+    let service = FakeLoginItemService(statuses: [.enabled, .enabled, .notRegistered])
     let (controller, launchItem, _, _) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
@@ -618,7 +620,7 @@ func testLoginItemMenuUnregistersWhenTurnedOff() throws {
 
 @MainActor
 func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
-    let service = FakeLoginItemService(statuses: [.requiresApproval])
+    let service = FakeLoginItemService(statuses: [.requiresApproval, .requiresApproval, .requiresApproval])
     let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
 
     try expectEqual(launchItem.state, .off, "requires approval is not checked")
@@ -630,6 +632,7 @@ func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
 
     try expectEqual(service.registerCallCount, 0, "requires approval does not retry register")
     try expectEqual(service.openSettingsCallCount, 2, "both approval actions open settings")
+    try expectEqual(service.statusReadCount, 3, "approval flow re-reads service status after toggle")
 }
 
 @MainActor
@@ -645,7 +648,7 @@ func testLoginItemMenuDisablesWhenServiceIsNotFound() throws {
 
 @MainActor
 func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
-    let service = FakeLoginItemService(statuses: [.notRegistered, .requiresApproval])
+    let service = FakeLoginItemService(statuses: [.notRegistered, .notRegistered, .requiresApproval])
     service.registerError = FakeProviderError.unavailable
     let (controller, launchItem, settingsItem, logSink) = makeLoginItemController(service: service)
 
