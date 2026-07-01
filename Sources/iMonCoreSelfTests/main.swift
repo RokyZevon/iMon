@@ -516,6 +516,149 @@ func testMenuBarSectionItemIsDisabled() throws {
     try expect(item.action == nil, "section item has no action")
 }
 
+private final class FakeLoginItemService: LoginItemServiceManaging {
+    var statuses: [LoginItemStatus]
+    private(set) var registerCallCount = 0
+    private(set) var unregisterCallCount = 0
+    private(set) var openSettingsCallCount = 0
+    var registerError: Error?
+    var unregisterError: Error?
+
+    init(statuses: [LoginItemStatus]) {
+        self.statuses = statuses
+    }
+
+    var status: LoginItemStatus {
+        statuses.removeFirst()
+    }
+
+    func register() throws {
+        registerCallCount += 1
+        if let registerError {
+            throw registerError
+        }
+    }
+
+    func unregister() throws {
+        unregisterCallCount += 1
+        if let unregisterError {
+            throw unregisterError
+        }
+    }
+
+    func openSystemSettingsLoginItems() {
+        openSettingsCallCount += 1
+    }
+}
+
+func makeLoginItemController(
+    service: FakeLoginItemService
+) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, [String]) {
+    let launchItem = NSMenuItem()
+    let settingsItem = NSMenuItem()
+    var logMessages: [String] = []
+    let controller = LoginItemMenuController(
+        launchAtLoginItem: launchItem,
+        openSettingsItem: settingsItem,
+        service: service,
+        logger: { logMessages.append($0) }
+    )
+    return (controller, launchItem, settingsItem, logMessages)
+}
+
+@MainActor
+func testLoginItemMenuShowsEnabledState() throws {
+    let service = FakeLoginItemService(statuses: [.enabled])
+    let (_, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+
+    try expectEqual(launchItem.title, "Launch at Login", "launch item title")
+    try expectEqual(launchItem.state, .on, "enabled status checks launch item")
+    try expect(launchItem.isEnabled, "enabled status keeps launch item enabled")
+    try expect(settingsItem.isHidden, "settings item hidden when approval is not required")
+}
+
+@MainActor
+func testLoginItemMenuShowsNotRegisteredState() throws {
+    let service = FakeLoginItemService(statuses: [.notRegistered])
+    let (_, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+
+    try expectEqual(launchItem.state, .off, "not registered status unchecks launch item")
+    try expect(launchItem.isEnabled, "not registered status keeps launch item enabled")
+    try expect(settingsItem.isHidden, "settings item hidden for not registered status")
+}
+
+@MainActor
+func testLoginItemMenuRegistersWhenTurnedOn() throws {
+    let service = FakeLoginItemService(statuses: [.notRegistered, .enabled])
+    let (controller, launchItem, _, _) = makeLoginItemController(service: service)
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.registerCallCount, 1, "turning on calls register")
+    try expectEqual(service.unregisterCallCount, 0, "turning on does not call unregister")
+    try expectEqual(launchItem.state, .on, "menu refreshes after registering")
+}
+
+@MainActor
+func testLoginItemMenuUnregistersWhenTurnedOff() throws {
+    let service = FakeLoginItemService(statuses: [.enabled, .notRegistered])
+    let (controller, launchItem, _, _) = makeLoginItemController(service: service)
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.unregisterCallCount, 1, "turning off calls unregister")
+    try expectEqual(service.registerCallCount, 0, "turning off does not call register")
+    try expectEqual(launchItem.state, .off, "menu refreshes after unregistering")
+}
+
+@MainActor
+func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
+    let service = FakeLoginItemService(statuses: [.requiresApproval])
+    let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+
+    try expectEqual(launchItem.state, .off, "requires approval is not checked")
+    try expect(launchItem.isEnabled, "requires approval keeps launch item actionable")
+    try expect(!settingsItem.isHidden, "settings item is visible when approval is required")
+
+    controller.toggleLaunchAtLogin(launchItem)
+    controller.openLoginItemsSettings(settingsItem)
+
+    try expectEqual(service.registerCallCount, 0, "requires approval does not retry register")
+    try expectEqual(service.openSettingsCallCount, 2, "both approval actions open settings")
+}
+
+@MainActor
+func testLoginItemMenuDisablesWhenServiceIsNotFound() throws {
+    let service = FakeLoginItemService(statuses: [.notFound])
+    let (_, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+
+    try expectEqual(launchItem.state, .off, "not found is unchecked")
+    try expect(!launchItem.isEnabled, "not found disables launch item")
+    try expectEqual(launchItem.toolTip, "Launch at login is available from the packaged app.", "not found tooltip")
+    try expect(settingsItem.isHidden, "settings item hidden when service is not found")
+}
+
+@MainActor
+func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
+    let service = FakeLoginItemService(statuses: [.notRegistered, .requiresApproval])
+    service.registerError = FakeProviderError.unavailable
+    let (controller, launchItem, settingsItem, logMessages) = makeLoginItemController(service: service)
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.registerCallCount, 1, "register was attempted")
+    try expectEqual(launchItem.state, .off, "failed register refreshes state")
+    try expect(!settingsItem.isHidden, "failed register can reveal approval settings")
+    try expect(logMessages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
+}
+
+func testLoginItemStatusMapsServiceManagementStatuses() throws {
+    try expectEqual(LoginItemStatus(serviceManagementStatus: .notRegistered), .notRegistered, "not registered mapping")
+    try expectEqual(LoginItemStatus(serviceManagementStatus: .enabled), .enabled, "enabled mapping")
+    try expectEqual(LoginItemStatus(serviceManagementStatus: .requiresApproval), .requiresApproval, "requires approval mapping")
+    try expectEqual(LoginItemStatus(serviceManagementStatus: .notFound), .notFound, "not found mapping")
+}
+
 func testMenuTitleShowsCoreMetrics() throws {
     let snapshot = SystemSnapshot(
         timestamp: Date(timeIntervalSince1970: 10),
@@ -840,6 +983,14 @@ let tests: [(String, () throws -> Void)] = [
     ("menu bar metrics view allows status button to receive clicks", { try MainActor.assumeIsolated { try testMenuBarMetricsViewAllowsStatusButtonToReceiveClicks() } }),
     ("menu bar attributed title applies optical centering attributes", testMenuBarAttributedTitleAppliesOpticalCenteringAttributes),
     ("menu bar section item is disabled", testMenuBarSectionItemIsDisabled),
+    ("login item menu shows enabled state", { try MainActor.assumeIsolated { try testLoginItemMenuShowsEnabledState() } }),
+    ("login item menu shows not registered state", { try MainActor.assumeIsolated { try testLoginItemMenuShowsNotRegisteredState() } }),
+    ("login item menu registers when turned on", { try MainActor.assumeIsolated { try testLoginItemMenuRegistersWhenTurnedOn() } }),
+    ("login item menu unregisters when turned off", { try MainActor.assumeIsolated { try testLoginItemMenuUnregistersWhenTurnedOff() } }),
+    ("login item menu opens settings when approval is required", { try MainActor.assumeIsolated { try testLoginItemMenuOpensSettingsWhenApprovalIsRequired() } }),
+    ("login item menu disables when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuDisablesWhenServiceIsNotFound() } }),
+    ("login item menu logs and refreshes after register failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() } }),
+    ("login item status maps ServiceManagement statuses", testLoginItemStatusMapsServiceManagementStatuses),
     ("menu title shows core metrics", testMenuTitleShowsCoreMetrics),
     ("first sample uses zero delta metrics", testFirstSampleUsesZeroDeltaBasedMetrics),
     ("sampler includes CPU load pressure", testSamplerIncludesCPULoadPressure),
