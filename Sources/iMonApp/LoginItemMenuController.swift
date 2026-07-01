@@ -29,7 +29,7 @@ public final class LoginItemMenuController: NSObject {
             launchAtLoginItem.isEnabled = true
             launchAtLoginItem.toolTip = nil
             openSettingsItem.isHidden = true
-        case .notRegistered:
+        case .notRegistered, .notFound:
             launchAtLoginItem.state = .off
             launchAtLoginItem.isEnabled = true
             launchAtLoginItem.toolTip = nil
@@ -39,11 +39,6 @@ public final class LoginItemMenuController: NSObject {
             launchAtLoginItem.isEnabled = true
             launchAtLoginItem.toolTip = "Allow iMon in Login Items settings to launch at login."
             openSettingsItem.isHidden = false
-        case .notFound:
-            launchAtLoginItem.state = .off
-            launchAtLoginItem.isEnabled = true
-            launchAtLoginItem.toolTip = nil
-            openSettingsItem.isHidden = true
         case .unknown:
             launchAtLoginItem.state = .off
             launchAtLoginItem.isEnabled = true
@@ -60,13 +55,7 @@ public final class LoginItemMenuController: NSObject {
             } catch {
                 logger("Unable to disable launch at login: \(error)")
             }
-        case .notRegistered:
-            do {
-                try service.register()
-            } catch {
-                logger("Unable to enable launch at login: \(error)")
-            }
-        case .notFound:
+        case .notRegistered, .notFound:
             do {
                 try service.register()
             } catch {
