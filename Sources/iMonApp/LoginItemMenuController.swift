@@ -6,7 +6,6 @@ public final class LoginItemMenuController: NSObject {
     private let openSettingsItem: NSMenuItem
     private let service: LoginItemServiceManaging
     private let logger: (String) -> Void
-    private var currentStatus: LoginItemStatus = .notRegistered
 
     public init(
         launchAtLoginItem: NSMenuItem,
@@ -24,9 +23,7 @@ public final class LoginItemMenuController: NSObject {
     }
 
     public func refresh() {
-        currentStatus = service.status
-
-        switch currentStatus {
+        switch service.status {
         case .enabled:
             launchAtLoginItem.state = .on
             launchAtLoginItem.isEnabled = true
@@ -51,32 +48,26 @@ public final class LoginItemMenuController: NSObject {
     }
 
     @objc public func toggleLaunchAtLogin(_ sender: Any?) {
-        var shouldRefresh = false
-
-        switch currentStatus {
+        switch service.status {
         case .enabled:
             do {
                 try service.unregister()
             } catch {
                 logger("Unable to disable launch at login: \(error)")
             }
-            shouldRefresh = true
         case .notRegistered:
             do {
                 try service.register()
             } catch {
                 logger("Unable to enable launch at login: \(error)")
             }
-            shouldRefresh = true
         case .requiresApproval:
             service.openSystemSettingsLoginItems()
         case .notFound:
             break
         }
 
-        if shouldRefresh {
-            refresh()
-        }
+        refresh()
     }
 
     @objc public func openLoginItemsSettings(_ sender: Any?) {
