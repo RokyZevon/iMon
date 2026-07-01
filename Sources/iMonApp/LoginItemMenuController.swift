@@ -44,6 +44,11 @@ public final class LoginItemMenuController: NSObject {
             launchAtLoginItem.isEnabled = false
             launchAtLoginItem.toolTip = "Launch at login is available from the packaged app."
             openSettingsItem.isHidden = true
+        case .unknown:
+            launchAtLoginItem.state = .off
+            launchAtLoginItem.isEnabled = true
+            launchAtLoginItem.toolTip = "Review iMon in Login Items settings to confirm launch at login."
+            openSettingsItem.isHidden = false
         }
     }
 
@@ -65,6 +70,8 @@ public final class LoginItemMenuController: NSObject {
             service.openSystemSettingsLoginItems()
         case .notFound:
             break
+        case .unknown:
+            service.openSystemSettingsLoginItems()
         }
 
         refresh()

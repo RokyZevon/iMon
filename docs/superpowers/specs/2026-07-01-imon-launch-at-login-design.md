@@ -56,7 +56,7 @@ If register or unregister fails, iMon keeps running, refreshes the visible menu 
 
 Add a small testable login item layer in `iMonApp`:
 
-- `LoginItemStatus`: app-facing status enum independent of ServiceManagement types.
+- `LoginItemStatus`: app-facing status enum independent of ServiceManagement types, including an unknown case for future ServiceManagement statuses.
 - `LoginItemServiceManaging`: protocol with `status`, `register()`, `unregister()`, and `openSystemSettingsLoginItems()`.
 - `ServiceManagementLoginItemService`: production adapter around `SMAppService.mainApp`.
 - `LoginItemMenuController`: menu state/action coordinator that can be tested with a fake service.
@@ -89,6 +89,11 @@ Unavailable state:
 - If the app is not in a usable bundle/signing state, disable `Launch at Login`.
 - Keep `Quit iMon` available.
 
+Unknown future ServiceManagement status:
+
+- Keep `Launch at Login` enabled, because an unknown framework status does not mean the feature is unavailable.
+- Show `Open Login Items Settings...` and open the system settings pane instead of blindly registering or unregistering.
+
 ## Testing
 
 Use the executable self-test target and fake the ServiceManagement adapter.
@@ -101,6 +106,7 @@ Coverage:
 - Toggling from on calls `unregister()`.
 - Requires-approval status shows `Open Login Items Settings...` and that item calls `openSystemSettingsLoginItems()`.
 - Not-found status disables the launch-at-login menu item.
+- Unknown status keeps the launch-at-login item actionable and opens system settings without registering or unregistering.
 - Register/unregister errors do not crash and cause a status refresh.
 
 Manual verification:

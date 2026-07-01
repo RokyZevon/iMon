@@ -180,14 +180,29 @@ func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
 }
 ```
 
-Add pure mapping tests:
+Add an unknown-status behavior test:
 
 ```swift
-func testLoginItemStatusMapsServiceManagementStatuses() throws {
-    try expectEqual(LoginItemStatus(serviceManagementStatus: .notRegistered), .notRegistered, "not registered mapping")
-    try expectEqual(LoginItemStatus(serviceManagementStatus: .enabled), .enabled, "enabled mapping")
-    try expectEqual(LoginItemStatus(serviceManagementStatus: .requiresApproval), .requiresApproval, "requires approval mapping")
-    try expectEqual(LoginItemStatus(serviceManagementStatus: .notFound), .notFound, "not found mapping")
+@MainActor
+func testLoginItemMenuTreatsUnknownStatusAsSettingsAction() throws {
+    let service = FakeLoginItemService(statuses: [.unknown, .unknown, .unknown])
+    let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+
+    try expectEqual(launchItem.state, .off, "unknown status is unchecked")
+    try expect(launchItem.isEnabled, "unknown status keeps launch item actionable")
+    try expectEqual(
+        launchItem.toolTip,
+        "Review iMon in Login Items settings to confirm launch at login.",
+        "unknown status tooltip"
+    )
+    try expect(!settingsItem.isHidden, "settings item is visible for unknown status")
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.registerCallCount, 0, "unknown status does not register blindly")
+    try expectEqual(service.unregisterCallCount, 0, "unknown status does not unregister blindly")
+    try expectEqual(service.openSettingsCallCount, 1, "unknown status opens settings")
+    try expectEqual(service.statusReadCount, 3, "unknown status re-reads service status after toggle")
 }
 ```
 
@@ -200,8 +215,8 @@ Add test entries to `tests`:
 ("login item menu unregisters when turned off", { try MainActor.assumeIsolated { try testLoginItemMenuUnregistersWhenTurnedOff() } }),
 ("login item menu opens settings when approval is required", { try MainActor.assumeIsolated { try testLoginItemMenuOpensSettingsWhenApprovalIsRequired() } }),
 ("login item menu disables when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuDisablesWhenServiceIsNotFound() } }),
+("login item menu treats unknown status as settings action", { try MainActor.assumeIsolated { try testLoginItemMenuTreatsUnknownStatusAsSettingsAction() } }),
 ("login item menu logs and refreshes after register failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() } }),
-("login item status maps ServiceManagement statuses", testLoginItemStatusMapsServiceManagementStatuses),
 ```
 
 - [ ] **Step 2: Run test to verify RED**
@@ -234,7 +249,6 @@ Expected: FAIL at compile time because `LoginItemServiceManaging`, `LoginItemSta
 - [ ] **Step 1: Implement `LoginItemService.swift`**
 
 ```swift
-import Foundation
 import ServiceManagement
 
 public enum LoginItemStatus: Equatable, Sendable {
@@ -242,8 +256,9 @@ public enum LoginItemStatus: Equatable, Sendable {
     case enabled
     case requiresApproval
     case notFound
+    case unknown
 
-    public init(serviceManagementStatus: SMAppService.Status) {
+    init(serviceManagementStatus: SMAppService.Status) {
         switch serviceManagementStatus {
         case .notRegistered:
             self = .notRegistered
@@ -254,7 +269,7 @@ public enum LoginItemStatus: Equatable, Sendable {
         case .notFound:
             self = .notFound
         @unknown default:
-            self = .notFound
+            self = .unknown
         }
     }
 }
@@ -340,6 +355,11 @@ public final class LoginItemMenuController: NSObject {
             launchAtLoginItem.isEnabled = false
             launchAtLoginItem.toolTip = "Launch at login is available from the packaged app."
             openSettingsItem.isHidden = true
+        case .unknown:
+            launchAtLoginItem.state = .off
+            launchAtLoginItem.isEnabled = true
+            launchAtLoginItem.toolTip = "Review iMon in Login Items settings to confirm launch at login."
+            openSettingsItem.isHidden = false
         }
     }
 
@@ -361,6 +381,8 @@ public final class LoginItemMenuController: NSObject {
             service.openSystemSettingsLoginItems()
         case .notFound:
             break
+        case .unknown:
+            service.openSystemSettingsLoginItems()
         }
 
         refresh()
