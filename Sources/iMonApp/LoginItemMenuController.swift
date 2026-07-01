@@ -41,8 +41,8 @@ public final class LoginItemMenuController: NSObject {
             openSettingsItem.isHidden = false
         case .notFound:
             launchAtLoginItem.state = .off
-            launchAtLoginItem.isEnabled = false
-            launchAtLoginItem.toolTip = "Launch at login is available from the packaged app."
+            launchAtLoginItem.isEnabled = true
+            launchAtLoginItem.toolTip = nil
             openSettingsItem.isHidden = true
         case .unknown:
             launchAtLoginItem.state = .off
@@ -66,10 +66,14 @@ public final class LoginItemMenuController: NSObject {
             } catch {
                 logger("Unable to enable launch at login: \(error)")
             }
+        case .notFound:
+            do {
+                try service.register()
+            } catch {
+                logger("Unable to enable launch at login: \(error)")
+            }
         case .requiresApproval:
             service.openSystemSettingsLoginItems()
-        case .notFound:
-            break
         case .unknown:
             service.openSystemSettingsLoginItems()
         }
