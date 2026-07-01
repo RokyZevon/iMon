@@ -14,7 +14,7 @@
 - Use `SMAppService.mainApp`; do not use deprecated `SMLoginItemSetEnabled`.
 - Do not add a helper bundle, LaunchAgent plist, LaunchDaemon plist, entitlements, or auto-enable behavior.
 - Launch-at-login must be explicitly user-controlled through the status menu.
-- Implementation work happens in isolated worktree `/Users/rokyzevon/dev/projects/iMon/.worktrees/launch-at-login` on branch `feature/launch-at-login`.
+- Implementation work happens in an isolated worktree, for example `<repo>/.worktrees/launch-at-login`, on branch `feature/launch-at-login`.
 - Do not dispatch implementation subagents unless the worker model can be explicitly set to `gpt-5.4-medium`.
 
 ---
@@ -48,6 +48,7 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     private(set) var registerCallCount = 0
     private(set) var unregisterCallCount = 0
     private(set) var openSettingsCallCount = 0
+    private(set) var statusReadCount = 0
     var registerError: Error?
     var unregisterError: Error?
 
@@ -56,7 +57,9 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     }
 
     var status: LoginItemStatus {
-        statuses.removeFirst()
+        statusReadCount += 1
+        precondition(!statuses.isEmpty, "FakeLoginItemService.status read more times than configured")
+        return statuses.removeFirst()
     }
 
     func register() throws {
@@ -78,19 +81,24 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     }
 }
 
+private final class LoginItemLogSink {
+    var messages: [String] = []
+}
+
+@MainActor
 func makeLoginItemController(
     service: FakeLoginItemService
-) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, [String]) {
+) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, LoginItemLogSink) {
     let launchItem = NSMenuItem()
     let settingsItem = NSMenuItem()
-    var logMessages: [String] = []
+    let logSink = LoginItemLogSink()
     let controller = LoginItemMenuController(
         launchAtLoginItem: launchItem,
         openSettingsItem: settingsItem,
         service: service,
-        logger: { logMessages.append($0) }
+        logger: { logSink.messages.append($0) }
     )
-    return (controller, launchItem, settingsItem, logMessages)
+    return (controller, launchItem, settingsItem, logSink)
 }
 
 @MainActor
@@ -116,7 +124,7 @@ func testLoginItemMenuShowsNotRegisteredState() throws {
 
 @MainActor
 func testLoginItemMenuRegistersWhenTurnedOn() throws {
-    let service = FakeLoginItemService(statuses: [.notRegistered, .enabled])
+    let service = FakeLoginItemService(statuses: [.notRegistered, .notRegistered, .enabled])
     let (controller, launchItem, _, _) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
@@ -128,7 +136,7 @@ func testLoginItemMenuRegistersWhenTurnedOn() throws {
 
 @MainActor
 func testLoginItemMenuUnregistersWhenTurnedOff() throws {
-    let service = FakeLoginItemService(statuses: [.enabled, .notRegistered])
+    let service = FakeLoginItemService(statuses: [.enabled, .enabled, .notRegistered])
     let (controller, launchItem, _, _) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
@@ -168,16 +176,31 @@ func testLoginItemMenuDisablesWhenServiceIsNotFound() throws {
 
 @MainActor
 func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
-    let service = FakeLoginItemService(statuses: [.notRegistered, .requiresApproval])
+    let service = FakeLoginItemService(statuses: [.notRegistered, .notRegistered, .requiresApproval])
     service.registerError = FakeProviderError.unavailable
-    let (controller, launchItem, settingsItem, logMessages) = makeLoginItemController(service: service)
+    let (controller, launchItem, settingsItem, logSink) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
 
     try expectEqual(service.registerCallCount, 1, "register was attempted")
     try expectEqual(launchItem.state, .off, "failed register refreshes state")
     try expect(!settingsItem.isHidden, "failed register can reveal approval settings")
-    try expect(logMessages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
+    try expect(logSink.messages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
+}
+
+@MainActor
+func testLoginItemMenuLogsAndRefreshesAfterUnregisterFailure() throws {
+    let service = FakeLoginItemService(statuses: [.enabled, .enabled, .enabled])
+    service.unregisterError = FakeProviderError.unavailable
+    let (controller, launchItem, settingsItem, logSink) = makeLoginItemController(service: service)
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.unregisterCallCount, 1, "unregister was attempted")
+    try expectEqual(service.registerCallCount, 0, "failed unregister does not call register")
+    try expectEqual(launchItem.state, .on, "failed unregister refreshes state")
+    try expect(settingsItem.isHidden, "failed unregister keeps settings item hidden when still enabled")
+    try expect(logSink.messages.contains { $0.hasPrefix("Unable to disable launch at login:") }, "unregister failure is logged")
 }
 ```
 
@@ -218,6 +241,7 @@ Add test entries to `tests`:
 ("login item menu disables when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuDisablesWhenServiceIsNotFound() } }),
 ("login item menu treats unknown status as settings action", { try MainActor.assumeIsolated { try testLoginItemMenuTreatsUnknownStatusAsSettingsAction() } }),
 ("login item menu logs and refreshes after register failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() } }),
+("login item menu logs and refreshes after unregister failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterUnregisterFailure() } }),
 ```
 
 - [ ] **Step 2: Run test to verify RED**
@@ -242,7 +266,7 @@ Expected: FAIL at compile time because `LoginItemServiceManaging`, `LoginItemSta
 **Interfaces:**
 - Consumes: tests from Task 1.
 - Produces:
-  - `public enum LoginItemStatus: Equatable`
+  - `public enum LoginItemStatus: Equatable, Sendable`
   - `public protocol LoginItemServiceManaging`
   - `public final class ServiceManagementLoginItemService`
   - `@MainActor public final class LoginItemMenuController`
@@ -609,7 +633,7 @@ Expected: only the planned files changed.
 Run:
 
 ```bash
-git add Sources/iMonApp/LoginItemService.swift Sources/iMonApp/LoginItemMenuController.swift Sources/iMon/main.swift Sources/iMonCoreSelfTests/main.swift README.md docs/superpowers/plans/2026-07-01-imon-launch-at-login.md
+git add Sources/iMonApp/LoginItemService.swift Sources/iMonApp/LoginItemMenuController.swift Sources/iMon/main.swift Sources/iMonCoreSelfTests/main.swift README.md docs/superpowers/plans/2026-07-01-imon-launch-at-login.md docs/superpowers/specs/2026-07-01-imon-launch-at-login-design.md
 git commit -m "feat: add launch at login"
 ```
 
