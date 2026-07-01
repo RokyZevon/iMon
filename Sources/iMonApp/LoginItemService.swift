@@ -1,4 +1,3 @@
-import Foundation
 import ServiceManagement
 
 public enum LoginItemStatus: Equatable, Sendable {
@@ -6,8 +5,9 @@ public enum LoginItemStatus: Equatable, Sendable {
     case enabled
     case requiresApproval
     case notFound
+    case unknown
 
-    public init(serviceManagementStatus: SMAppService.Status) {
+    init(serviceManagementStatus: SMAppService.Status) {
         switch serviceManagementStatus {
         case .notRegistered:
             self = .notRegistered
@@ -18,7 +18,7 @@ public enum LoginItemStatus: Equatable, Sendable {
         case .notFound:
             self = .notFound
         @unknown default:
-            self = .notFound
+            self = .unknown
         }
     }
 }
