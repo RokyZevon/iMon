@@ -555,7 +555,8 @@ private final class LoginItemLogSink {
     var messages: [String] = []
 }
 
-func makeLoginItemController(
+@MainActor
+private func makeLoginItemController(
     service: FakeLoginItemService
 ) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, LoginItemLogSink) {
     let launchItem = NSMenuItem()
