@@ -531,6 +531,7 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
 
     var status: LoginItemStatus {
         statusReadCount += 1
+        precondition(!statuses.isEmpty, "FakeLoginItemService.status read more times than configured")
         return statuses.removeFirst()
     }
 
@@ -620,7 +621,7 @@ func testLoginItemMenuUnregistersWhenTurnedOff() throws {
 
 @MainActor
 func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
-    let service = FakeLoginItemService(statuses: [.requiresApproval, .requiresApproval, .requiresApproval])
+    let service = FakeLoginItemService(statuses: [.requiresApproval, .requiresApproval, .requiresApproval, .requiresApproval])
     let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
 
     try expectEqual(launchItem.state, .off, "requires approval is not checked")
@@ -632,7 +633,7 @@ func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
 
     try expectEqual(service.registerCallCount, 0, "requires approval does not retry register")
     try expectEqual(service.openSettingsCallCount, 2, "both approval actions open settings")
-    try expectEqual(service.statusReadCount, 3, "approval flow re-reads service status after toggle")
+    try expectEqual(service.statusReadCount, 4, "approval flow re-reads service status after both settings actions")
 }
 
 @MainActor

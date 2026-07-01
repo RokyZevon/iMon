@@ -79,6 +79,7 @@ public final class LoginItemMenuController: NSObject {
 
     @objc public func openLoginItemsSettings(_ sender: Any?) {
         service.openSystemSettingsLoginItems()
+        refresh()
     }
 
     private func configureMenuItems() {
