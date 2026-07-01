@@ -32,7 +32,7 @@ The app appears in the macOS menu bar and uses accessory activation policy, so i
 open dist/iMon.app
 ```
 
-The packaged app is created at `dist/iMon.app`. It is ad-hoc signed for local use, but it is not notarized.
+The packaged app is created at `dist/iMon.app`. It is ad-hoc signed for local use, but it is not notarized. Launch at login is available from the packaged app through the status menu's `Launch at Login` item; the `swift run iMon` development executable is not a signed app bundle for login item registration.
 
 ## Test
 
@@ -52,6 +52,7 @@ Implemented:
 - Memory pressure
 - Disk usage and free capacity for the root volume
 - Network receive/transmit throughput
+- User-controlled launch at login for the packaged app
 
 Out of scope for this first release:
 
@@ -62,7 +63,6 @@ Out of scope for this first release:
 - Process lists
 - Charts
 - Preferences
-- Login items
 - Signing and notarized app packaging
 
 ## Architecture
