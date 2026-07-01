@@ -4,7 +4,7 @@ import iMonApp
 import iMonCore
 
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let sampler: SystemSampler
     private let settingsStore: MenuBarDisplaySettingsStore
@@ -15,6 +15,9 @@ final class MenuBarController: NSObject {
     private let memoryPressureToggleItem = NSMenuItem()
     private let uploadToggleItem = NSMenuItem()
     private let downloadToggleItem = NSMenuItem()
+    private let loginItemToggleItem: NSMenuItem
+    private let openLoginItemsSettingsItem: NSMenuItem
+    private let loginItemMenuController: LoginItemMenuController
     private let diskUsedToggleItem = NSMenuItem()
     private let diskFreeToggleItem = NSMenuItem()
     private let cpuItem = NSMenuItem()
@@ -32,12 +35,22 @@ final class MenuBarController: NSObject {
     init(
         statusItem: NSStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength),
         sampler: SystemSampler = .live(),
-        settingsStore: MenuBarDisplaySettingsStore = MenuBarDisplaySettingsStore()
+        settingsStore: MenuBarDisplaySettingsStore = MenuBarDisplaySettingsStore(),
+        loginItemService: LoginItemServiceManaging = ServiceManagementLoginItemService()
     ) {
         self.statusItem = statusItem
         self.sampler = sampler
         self.settingsStore = settingsStore
         self.settings = settingsStore.load()
+        let loginItemToggleItem = NSMenuItem()
+        let openLoginItemsSettingsItem = NSMenuItem()
+        self.loginItemToggleItem = loginItemToggleItem
+        self.openLoginItemsSettingsItem = openLoginItemsSettingsItem
+        self.loginItemMenuController = LoginItemMenuController(
+            launchAtLoginItem: loginItemToggleItem,
+            openSettingsItem: openLoginItemsSettingsItem,
+            service: loginItemService
+        )
         super.init()
         configureMenu()
     }
@@ -67,6 +80,7 @@ final class MenuBarController: NSObject {
         statusItem.button?.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         statusItem.button?.title = "iMon"
         statusItem.menu = menu
+        menu.delegate = self
 
         configureToggle(cpuToggleItem, title: "Show CPU Usage (C) in Menu Bar", action: #selector(toggleCPU))
         configureToggle(cpuLoadToggleItem, title: "Show CPU Load (L) in Menu Bar", action: #selector(toggleCPULoad))
@@ -97,8 +111,16 @@ final class MenuBarController: NSObject {
         menu.addItem(uploadItem)
         menu.addItem(downloadItem)
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(MenuBarMenuItemFactory.sectionTitle("App"))
+        menu.addItem(loginItemToggleItem)
+        menu.addItem(openLoginItemsSettingsItem)
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit iMon", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         updateToggleStates()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        loginItemMenuController.refresh()
     }
 
     private func configureToggle(_ item: NSMenuItem, title: String, action: Selector) {
