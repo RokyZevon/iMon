@@ -104,7 +104,7 @@ Coverage:
 - The menu item is unchecked when status is not registered.
 - Toggling from off calls `register()`.
 - Toggling from on calls `unregister()`.
-- Requires-approval status shows `Open Login Items Settings...` and that item calls `openSystemSettingsLoginItems()`.
+- Requires-approval status shows `Open Login Items Settings...`; opening settings calls `openSystemSettingsLoginItems()` and refreshes menu state afterward.
 - Not-found status disables the launch-at-login menu item.
 - Unknown status keeps the launch-at-login item actionable and opens system settings without registering or unregistering.
 - Register/unregister errors do not crash and cause a status refresh.

@@ -24,7 +24,7 @@
 - Create `Sources/iMonApp/LoginItemService.swift`: app-facing status enum, fakeable protocol, and ServiceManagement adapter.
 - Create `Sources/iMonApp/LoginItemMenuController.swift`: AppKit menu item state/action coordinator.
 - Modify `Sources/iMon/main.swift`: add login item menu items, inject the production service, and refresh menu state on menu open.
-- Modify `Sources/iMonCoreSelfTests/main.swift`: add fake-service tests for menu state/actions and pure status mapping tests.
+- Modify `Sources/iMonCoreSelfTests/main.swift`: add fake-service tests for menu state/actions, including unknown status behavior.
 - Modify `README.md`: document that launch-at-login is available from the packaged signed `.app`.
 
 ---
@@ -140,7 +140,7 @@ func testLoginItemMenuUnregistersWhenTurnedOff() throws {
 
 @MainActor
 func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
-    let service = FakeLoginItemService(statuses: [.requiresApproval])
+    let service = FakeLoginItemService(statuses: [.requiresApproval, .requiresApproval, .requiresApproval, .requiresApproval])
     let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
 
     try expectEqual(launchItem.state, .off, "requires approval is not checked")
@@ -152,6 +152,7 @@ func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
 
     try expectEqual(service.registerCallCount, 0, "requires approval does not retry register")
     try expectEqual(service.openSettingsCallCount, 2, "both approval actions open settings")
+    try expectEqual(service.statusReadCount, 4, "approval flow re-reads service status after both settings actions")
 }
 
 @MainActor
@@ -390,6 +391,7 @@ public final class LoginItemMenuController: NSObject {
 
     @objc public func openLoginItemsSettings(_ sender: Any?) {
         service.openSystemSettingsLoginItems()
+        refresh()
     }
 
     private func configureMenuItems() {
