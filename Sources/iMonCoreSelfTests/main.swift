@@ -637,14 +637,20 @@ func testLoginItemMenuOpensSettingsWhenApprovalIsRequired() throws {
 }
 
 @MainActor
-func testLoginItemMenuDisablesWhenServiceIsNotFound() throws {
-    let service = FakeLoginItemService(statuses: [.notFound])
-    let (_, launchItem, settingsItem, _) = makeLoginItemController(service: service)
+func testLoginItemMenuRegistersWhenServiceIsNotFound() throws {
+    let service = FakeLoginItemService(statuses: [.notFound, .notFound, .enabled])
+    let (controller, launchItem, settingsItem, _) = makeLoginItemController(service: service)
 
     try expectEqual(launchItem.state, .off, "not found is unchecked")
-    try expect(!launchItem.isEnabled, "not found disables launch item")
-    try expectEqual(launchItem.toolTip, "Launch at login is available from the packaged app.", "not found tooltip")
+    try expect(launchItem.isEnabled, "not found keeps launch item enabled because main app can register from this state")
+    try expectEqual(launchItem.toolTip, nil, "not found has no unavailable tooltip")
     try expect(settingsItem.isHidden, "settings item hidden when service is not found")
+
+    controller.toggleLaunchAtLogin(launchItem)
+
+    try expectEqual(service.registerCallCount, 1, "not found attempts register")
+    try expectEqual(service.unregisterCallCount, 0, "not found does not unregister")
+    try expectEqual(launchItem.state, .on, "menu refreshes after not found register")
 }
 
 @MainActor
@@ -1027,7 +1033,7 @@ let tests: [(String, () throws -> Void)] = [
     ("login item menu registers when turned on", { try MainActor.assumeIsolated { try testLoginItemMenuRegistersWhenTurnedOn() } }),
     ("login item menu unregisters when turned off", { try MainActor.assumeIsolated { try testLoginItemMenuUnregistersWhenTurnedOff() } }),
     ("login item menu opens settings when approval is required", { try MainActor.assumeIsolated { try testLoginItemMenuOpensSettingsWhenApprovalIsRequired() } }),
-    ("login item menu disables when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuDisablesWhenServiceIsNotFound() } }),
+    ("login item menu registers when service is not found", { try MainActor.assumeIsolated { try testLoginItemMenuRegistersWhenServiceIsNotFound() } }),
     ("login item menu treats unknown status as settings action", { try MainActor.assumeIsolated { try testLoginItemMenuTreatsUnknownStatusAsSettingsAction() } }),
     ("login item menu logs and refreshes after register failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() } }),
     ("login item menu logs and refreshes after unregister failure", { try MainActor.assumeIsolated { try testLoginItemMenuLogsAndRefreshesAfterUnregisterFailure() } }),
