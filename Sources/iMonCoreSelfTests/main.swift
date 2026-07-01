@@ -551,19 +551,23 @@ private final class FakeLoginItemService: LoginItemServiceManaging {
     }
 }
 
+private final class LoginItemLogSink {
+    var messages: [String] = []
+}
+
 func makeLoginItemController(
     service: FakeLoginItemService
-) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, [String]) {
+) -> (LoginItemMenuController, NSMenuItem, NSMenuItem, LoginItemLogSink) {
     let launchItem = NSMenuItem()
     let settingsItem = NSMenuItem()
-    var logMessages: [String] = []
+    let logSink = LoginItemLogSink()
     let controller = LoginItemMenuController(
         launchAtLoginItem: launchItem,
         openSettingsItem: settingsItem,
         service: service,
-        logger: { logMessages.append($0) }
+        logger: { logSink.messages.append($0) }
     )
-    return (controller, launchItem, settingsItem, logMessages)
+    return (controller, launchItem, settingsItem, logSink)
 }
 
 @MainActor
@@ -642,14 +646,14 @@ func testLoginItemMenuDisablesWhenServiceIsNotFound() throws {
 func testLoginItemMenuLogsAndRefreshesAfterRegisterFailure() throws {
     let service = FakeLoginItemService(statuses: [.notRegistered, .requiresApproval])
     service.registerError = FakeProviderError.unavailable
-    let (controller, launchItem, settingsItem, logMessages) = makeLoginItemController(service: service)
+    let (controller, launchItem, settingsItem, logSink) = makeLoginItemController(service: service)
 
     controller.toggleLaunchAtLogin(launchItem)
 
     try expectEqual(service.registerCallCount, 1, "register was attempted")
     try expectEqual(launchItem.state, .off, "failed register refreshes state")
     try expect(!settingsItem.isHidden, "failed register can reveal approval settings")
-    try expect(logMessages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
+    try expect(logSink.messages.contains { $0.hasPrefix("Unable to enable launch at login:") }, "register failure is logged")
 }
 
 func testLoginItemStatusMapsServiceManagementStatuses() throws {
