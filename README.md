@@ -34,6 +34,14 @@ open dist/iMon.app
 
 The packaged app is created at `dist/iMon.app`. It is ad-hoc signed for local use, but it is not notarized. Launch at login is available from the packaged app through the status menu's `Launch at Login` item; the `swift run iMon` development executable is not a signed app bundle for login item registration.
 
+The package includes the committed app icon from `Resources/AppIcon.icns` and `Resources/Assets.car`. Regenerate icon assets after changing the Swift icon generator:
+
+```bash
+swift scripts/generate_app_icon.swift
+```
+
+Regeneration requires `xcrun actool` from the selected Xcode developer directory. Check availability with `xcrun --find actool`.
+
 ## Test
 
 ```bash
