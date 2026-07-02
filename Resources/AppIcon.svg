@@ -2,20 +2,16 @@
   <style>
     .bgTop { stop-color: #FFF8EC; }
     .bgBottom { stop-color: #EFE8DA; }
-    .railTop { fill: #1F9E98; }
-    .railBottom { fill: #205B78; }
-    .pressure { fill: #E9A23B; }
-    .pressureAccent { fill: #C8613D; }
-    .innerLine { fill: #F8DCA6; opacity: 0.75; }
+    .railTop { stroke: #53B982; }
+    .railMiddle { stroke: #F0A21F; }
+    .railBottom { stroke: #2CB9B3; }
     .border { stroke: #D7C9B4; }
     @media (prefers-color-scheme: dark) {
       .bgTop { stop-color: #24201B; }
       .bgBottom { stop-color: #0F0E0C; }
-      .railTop { fill: #55D6C2; }
-      .railBottom { fill: #8ECAE6; }
-      .pressure { fill: #F2A23A; }
-      .pressureAccent { fill: #FF6F4B; }
-      .innerLine { fill: #FFE1A6; opacity: 0.7; }
+      .railTop { stroke: #7CE7B3; }
+      .railMiddle { stroke: #FFD46B; }
+      .railBottom { stroke: #67DDD6; }
       .border { stroke: #3C3328; }
     }
   </style>
@@ -27,10 +23,8 @@
   </defs>
   <rect x="72" y="72" width="880" height="880" rx="218" fill="url(#bg)" class="border" stroke-width="24"/>
   <g transform="translate(0 1024) scale(1 -1)">
-    <rect x="224" y="588" width="456" height="108" rx="54" class="railTop"/>
-    <rect x="344" y="328" width="456" height="108" rx="54" class="railBottom"/>
-    <rect x="462" y="392" width="120" height="240" rx="60" class="pressure"/>
-    <rect x="500" y="442" width="44" height="140" rx="22" class="innerLine"/>
-    <rect x="594" y="468" width="108" height="36" rx="18" class="pressureAccent"/>
+    <rect x="296" y="628" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railTop"/>
+    <rect x="428" y="500" width="188" height="64" rx="32" fill="none" stroke-width="20" class="railMiddle"/>
+    <rect x="428" y="372" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railBottom"/>
   </g>
 </svg>

@@ -44,32 +44,26 @@ struct Palette {
     let backgroundTop: IconColor
     let backgroundBottom: IconColor
     let railTop: IconColor
+    let railMiddle: IconColor
     let railBottom: IconColor
-    let pressure: IconColor
-    let pressureAccent: IconColor
-    let innerLine: IconColor
     let border: IconColor
 }
 
 let lightPalette = Palette(
     backgroundTop: IconColor(hex: 0xFFF8EC),
     backgroundBottom: IconColor(hex: 0xEFE8DA),
-    railTop: IconColor(hex: 0x1F9E98),
-    railBottom: IconColor(hex: 0x205B78),
-    pressure: IconColor(hex: 0xE9A23B),
-    pressureAccent: IconColor(hex: 0xC8613D),
-    innerLine: IconColor(hex: 0xF8DCA6),
+    railTop: IconColor(hex: 0x53B982),
+    railMiddle: IconColor(hex: 0xF0A21F),
+    railBottom: IconColor(hex: 0x2CB9B3),
     border: IconColor(hex: 0xD7C9B4)
 )
 
 let darkPalette = Palette(
     backgroundTop: IconColor(hex: 0x24201B),
     backgroundBottom: IconColor(hex: 0x0F0E0C),
-    railTop: IconColor(hex: 0x55D6C2),
-    railBottom: IconColor(hex: 0x8ECAE6),
-    pressure: IconColor(hex: 0xF2A23A),
-    pressureAccent: IconColor(hex: 0xFF6F4B),
-    innerLine: IconColor(hex: 0xFFE1A6),
+    railTop: IconColor(hex: 0x7CE7B3),
+    railMiddle: IconColor(hex: 0xFFD46B),
+    railBottom: IconColor(hex: 0x67DDD6),
     border: IconColor(hex: 0x3C3328)
 )
 
@@ -124,20 +118,16 @@ func writeSVG() throws {
       <style>
         .bgTop { stop-color: \(light.backgroundTop.svgHex); }
         .bgBottom { stop-color: \(light.backgroundBottom.svgHex); }
-        .railTop { fill: \(light.railTop.svgHex); }
-        .railBottom { fill: \(light.railBottom.svgHex); }
-        .pressure { fill: \(light.pressure.svgHex); }
-        .pressureAccent { fill: \(light.pressureAccent.svgHex); }
-        .innerLine { fill: \(light.innerLine.svgHex); opacity: 0.75; }
+        .railTop { stroke: \(light.railTop.svgHex); }
+        .railMiddle { stroke: \(light.railMiddle.svgHex); }
+        .railBottom { stroke: \(light.railBottom.svgHex); }
         .border { stroke: \(light.border.svgHex); }
         @media (prefers-color-scheme: dark) {
           .bgTop { stop-color: \(dark.backgroundTop.svgHex); }
           .bgBottom { stop-color: \(dark.backgroundBottom.svgHex); }
-          .railTop { fill: \(dark.railTop.svgHex); }
-          .railBottom { fill: \(dark.railBottom.svgHex); }
-          .pressure { fill: \(dark.pressure.svgHex); }
-          .pressureAccent { fill: \(dark.pressureAccent.svgHex); }
-          .innerLine { fill: \(dark.innerLine.svgHex); opacity: 0.7; }
+          .railTop { stroke: \(dark.railTop.svgHex); }
+          .railMiddle { stroke: \(dark.railMiddle.svgHex); }
+          .railBottom { stroke: \(dark.railBottom.svgHex); }
           .border { stroke: \(dark.border.svgHex); }
         }
       </style>
@@ -149,11 +139,9 @@ func writeSVG() throws {
       </defs>
       <rect x="72" y="72" width="880" height="880" rx="218" fill="url(#bg)" class="border" stroke-width="24"/>
       <g transform="translate(0 1024) scale(1 -1)">
-        <rect x="224" y="588" width="456" height="108" rx="54" class="railTop"/>
-        <rect x="344" y="328" width="456" height="108" rx="54" class="railBottom"/>
-        <rect x="462" y="392" width="120" height="240" rx="60" class="pressure"/>
-        <rect x="500" y="442" width="44" height="140" rx="22" class="innerLine"/>
-        <rect x="594" y="468" width="108" height="36" rx="18" class="pressureAccent"/>
+        <rect x="296" y="628" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railTop"/>
+        <rect x="428" y="500" width="188" height="64" rx="32" fill="none" stroke-width="20" class="railMiddle"/>
+        <rect x="428" y="372" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railBottom"/>
       </g>
     </svg>
     """
@@ -207,20 +195,15 @@ func drawIcon(pixels: Int, appearance: Appearance, to url: URL) throws {
     background.lineWidth = max(1, r(24))
     background.stroke()
 
-    palette.railTop.color.setFill()
-    roundedRect(224, 588, 456, 108, 54).fill()
+    func strokeRail(_ path: NSBezierPath, color: IconColor) {
+        color.color.setStroke()
+        path.lineWidth = max(1, r(20))
+        path.stroke()
+    }
 
-    palette.railBottom.color.setFill()
-    roundedRect(344, 328, 456, 108, 54).fill()
-
-    palette.pressure.color.setFill()
-    roundedRect(462, 392, 120, 240, 60).fill()
-
-    palette.innerLine.color.withAlphaComponent(appearance == .light ? 0.75 : 0.7).setFill()
-    roundedRect(500, 442, 44, 140, 22).fill()
-
-    palette.pressureAccent.color.setFill()
-    roundedRect(594, 468, 108, 36, 18).fill()
+    strokeRail(roundedRect(296, 628, 340, 58, 29), color: palette.railTop)
+    strokeRail(roundedRect(428, 500, 188, 64, 32), color: palette.railMiddle)
+    strokeRail(roundedRect(428, 372, 340, 58, 29), color: palette.railBottom)
 
     NSGraphicsContext.restoreGraphicsState()
 
