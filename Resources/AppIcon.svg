@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <style>
+    .bgTop { stop-color: #FFF8EC; }
+    .bgBottom { stop-color: #EFE8DA; }
+    .railTop { stroke: #53B982; }
+    .railMiddle { stroke: #F0A21F; }
+    .railBottom { stroke: #2CB9B3; }
+    .border { stroke: #D7C9B4; }
+    @media (prefers-color-scheme: dark) {
+      .bgTop { stop-color: #24201B; }
+      .bgBottom { stop-color: #0F0E0C; }
+      .railTop { stroke: #7CE7B3; }
+      .railMiddle { stroke: #FFD46B; }
+      .railBottom { stroke: #67DDD6; }
+      .border { stroke: #3C3328; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="512" y1="72" x2="512" y2="952" gradientUnits="userSpaceOnUse">
+      <stop offset="0" class="bgTop"/>
+      <stop offset="1" class="bgBottom"/>
+    </linearGradient>
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="218" fill="url(#bg)" class="border" stroke-width="24"/>
+  <g transform="translate(0 1024) scale(1 -1)">
+    <rect x="296" y="628" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railTop"/>
+    <rect x="428" y="500" width="188" height="64" rx="32" fill="none" stroke-width="20" class="railMiddle"/>
+    <rect x="428" y="372" width="340" height="58" rx="29" fill="none" stroke-width="20" class="railBottom"/>
+  </g>
+</svg>
